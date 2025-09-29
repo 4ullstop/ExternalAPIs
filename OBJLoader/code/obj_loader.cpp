@@ -4,7 +4,15 @@
 #include "../../MemoryPools/code/memory_pool_dll_include.h"
 #include <libloaderapi.h>
 
+#define RUN_PERFORMANCE_TIMER 0
+
+#if RUN_PERFORMANCE_TIMER
+#include <windows.h>
+#endif
+
 /*
+  Yeah... this is bad lmao
+
   The things to fix bc they are janky/piggy/bananacakes:
    - Rounding errors in StrToR32
    - 3 times through the vertex indices loops, could be more than 3 vertex indices
@@ -152,10 +160,7 @@ void ParseVertexData(char* vertexString, memory_arena* objArena, obj* objStorage
     {
 	FindNextValueStr(vertexString, objArena, &stringData);
 	r32 newValue = StrToR32(stringData.newString, stringData.stringLength);	
-
-	//Still seg faulting on this i32
 	objStorageLocation->vertexIndices[objStorageLocation->vertexLastIndex++] = newValue;
-
 	stringData.start = stringData.i;
     }
 }
@@ -170,18 +175,88 @@ i32 DetermineDataFormat(char* string)
     return(result);
 }
 
-void ParseVertexNormals(char* vertexNormalString, memory_arena* objArena, obj* objStorageLocation)
+void ParseFloatMembers(char* rowString, memory_arena* objArena, r32* storageArray, i32* storageIndex, i32 itemsPerRow)
 {
-    //This is repeated, find a way to make it not repeated plz...
+    //Figure out how to make this loop based on the amount in the row
     find_string_value_data stringData = {};
     stringData.i = 2;
     stringData.start = stringData.i;
-    for (i32 i = 0; i < 3; i++)
+    for (i32 i = 0; i < itemsPerRow; i++)
     {
-	FindNextValueStr(vertexNormalString, objArena, &stringData);
-	r32 newValue = StrToR32(stringData.newString, stringData.stringLength);
-	objStorageLocation->vertexNormals[objStorageLocation->vertexNormalLastIndex++] = newValue;
+	FindNextValueStr(rowString, objArena, &stringData);
+	r32 convertedFloatValue = StrToR32(stringData.newString, stringData.stringLength);
+	storageArray[(*storageIndex)++] = convertedFloatValue;
 	stringData.start = stringData.i;
+    }
+}
+
+i32 FindDistanceToNextSlash(char* string)
+{
+    i32 i = 0;
+    while (string[i] != '/')
+    {
+	if (string[i] == NULL)
+	{
+	    break;
+	}
+	i++;
+    }
+    return(i);
+}
+
+
+
+i32 FindIntFromFaceValue(i32* startLocation, char* stringValue)
+{
+    i32 i = 0, place = 1, j = 0, result = 0;
+
+    while (stringValue[++i] != '/')
+    {
+	if (stringValue[i] == NULL)
+	{
+	    break;
+	}
+	place *= 10;
+
+    }
+
+    while (stringValue[j] != '/')
+    {
+	if (stringValue[j] == NULL)
+	{
+	    break;
+	}
+	i32 intVal = stringValue[j] - '0';
+	intVal *= place;
+	result += intVal;
+	place /= 10;
+	j++;
+    }
+    *startLocation = *startLocation + (j + 1);
+    return(result);
+}
+
+void ParseFaceValues(char* rowString, memory_arena* objArena, i32* storageArray, i32* storageIndex, i32 itemsPerRow)
+{
+    find_string_value_data blockString = {};
+    blockString.i = 2;
+    blockString.start = blockString.i;
+    for (i32 i = 0; i < itemsPerRow; i++)
+    {
+	//This doesn't seem to work well for this portion
+	FindNextValueStr(rowString, objArena, &blockString);
+	
+	char* testString = "10/2/2";
+	find_string_value_data integerString = {};
+	//This needs to happen 3 times
+	i32 newStartLocation = 0;
+	for (i32 j = 0; j < 3; j++)
+	{
+	    //Update the position at which to check the string for new values
+	    i32 integer = FindIntFromFaceValue(&newStartLocation, &blockString.newString[newStartLocation]);
+	    storageArray[(*storageIndex)++] = integer;
+	}
+	blockString.start = blockString.i;
     }
 }
 
@@ -311,13 +386,20 @@ obj* LoadOBJFile(char* fileLocation, memory_arena* objLocationArena, program_mem
 	    i32 desVal = DetermineDataFormat(&parsee[i + 1]);
 
 	    i32 j = i + 1;
+	    i32 itemsPerRow = 0;
 	    while (parsee[++j] != '\n')
 	    {
 		if (parsee[j] == NULL)
 		{
 		    break;
 		}
+		if (parsee[j] == ' ')
+		{
+		    itemsPerRow++;
+		}
 	    }
+
+	    
 
 	    i32 rowDataLen = j - i;
 	    
@@ -338,19 +420,35 @@ obj* LoadOBJFile(char* fileLocation, memory_arena* objLocationArena, program_mem
 	    } break;
 	    case e_face:
 	    {
-
+		ParseFaceValues(rowData,
+				&objArena,
+				result->face,
+				&result->faceLastIndex,
+				itemsPerRow);
 	    } break;
 	    case e_vertex:
 	    {
-		ParseVertexData(rowData, &objArena, result);
+		ParseFloatMembers(rowData,
+				  &objArena,
+				  result->vertexIndices,
+				  &result->vertexLastIndex,
+				  itemsPerRow);
 	    } break;
 	    case e_vertex_normal:
 	    {
-		ParseVertexNormals(rowData, &objArena, result);
+		ParseFloatMembers(rowData,
+				  &objArena,
+				  result->vertexNormals,
+				  &result->vertexNormalLastIndex,
+				  itemsPerRow);
 	    } break;
 	    case e_vertex_texture_coords:
 	    {
-		
+		ParseFloatMembers(rowData,
+				  &objArena,
+				  result->vertexTextureCoordinates,
+				  &result->vertexTextureCoordLastIndex,
+				  itemsPerRow);
 	    } break;
 	    default:
 	    {
