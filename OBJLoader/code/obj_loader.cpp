@@ -1,8 +1,10 @@
 #include "obj_loader.h"
 #include "../../FileReader/file_reader.cpp"
 #include <stdio.h>
+#include <stdlib.h>
 #include "../../MemoryPools/code/memory_pool_dll_include.h"
 #include <libloaderapi.h>
+#include "../../Types/intrinsics.h"
 
 #define RUN_PERFORMANCE_TIMER 1
 
@@ -14,7 +16,6 @@
   Yeah... this is bad lmao
 
   The things to fix bc they are janky/piggy/bananacakes:
-   - Rounding errors in StrToR32
    - 3 times through the vertex indices loops, could be more than 3 vertex indices
    - Not a huge fan of all of the while loops it takes to parse the file for multiple things
    
@@ -38,7 +39,6 @@
 /*
   Surprisingly, this isn't that slow...
   Order of importance:
-   - Solve rounding issues
    - Throw into Direct3D
  */
 
@@ -76,83 +76,6 @@ Win32GetSecondsElapsed(LARGE_INTEGER start, LARGE_INTEGER end)
     return(result);
 }
 
-r32 StrToR32(char* character, i32 length)
-{
-    //Check for sign
-    //Check for period
-    //Change value if digit
-
-    r32 result = 0.0f;
-
-    i32 sign = 1;
-    i32 i = 0;
-    if (character[0] == '-')
-    {
-	sign = -1;
-	i = 1;
-    }
-
-    //Start by calculating the value in the first loop of the value before the decimal
-    //Then calculate the value in the second loop of the value after the decimal
-
-
-    r32 place = 1;    
-    while (character[++i] != '.')
-    {
-	if (character[i] == NULL)
-	{
-	    break;
-	}
-	place *= 10;
-    }
-
-    r32 resultBeforeDecimal = 0.0f;    
-    if (i == 1)
-    {
-	i32 intVal = character[0] - '0';
-	intVal *= (i32)place;
-	resultBeforeDecimal += (r32)intVal;
-    }
-    
-
-    //Rather than using this place type shi, use bit shifting?
-    //Either way you still should try to find a better way to search for the next escape character
-    //Look into memchr
-    for (i32 j = 1; j < i; j++)
-    {
-	
-	i32 intVal = character[j] - '0';
-
-	intVal *= (i32)place;
-
-	resultBeforeDecimal += (r32)intVal;
-	if (place == 0.0f)
-	{
-	    break;
-	}
-	place /= 10.0f;
-    }
-
-    place = 0.1f;
-
-    //We are getting floating point rounding errors what do I do?
-    r32 resultAfterDecimal = 0.0f;
-    for (i32 j = i + 1; j < length; j++)
-    {
-	i32 intVal = character[j] - '0';
-	r32 fVal = (r32)intVal;
-
-	fVal *= place;
-
-	resultAfterDecimal += fVal;
-	
-	place /= 10;
-    }
-
-    result = (resultBeforeDecimal + resultAfterDecimal) * sign; 
-    
-    return(result);
-}
 
 struct find_string_value_data
 {
@@ -188,25 +111,6 @@ void FindNextValueStr(char* rowString, memory_arena* objArena, find_string_value
     }
 }
 
-void ParseVertexData(char* vertexString, memory_arena* objArena, obj* objStorageLocation)
-{
-    //We can keep allocating the array every loop iteration and then just clear the entire pool at the end of the function
-
-
-    //While there are only 3 vertex indices in this model, there could be more, this needs to be a different loop
-    //such that we can run it as many times as there are indices
-    find_string_value_data stringData = {};
-    stringData.i = 2;
-    stringData.start = stringData.i;
-    for (i32 l = 0; l < 3; l++)
-    {
-	FindNextValueStr(vertexString, objArena, &stringData);
-	r32 newValue = StrToR32(stringData.newString, stringData.stringLength);	
-	objStorageLocation->vertexIndices[objStorageLocation->vertexLastIndex++] = newValue;
-	stringData.start = stringData.i;
-    }
-}
-
 i32 DetermineDataFormat(char* string)
 {
     i32 result = (i32)string[0];
@@ -219,34 +123,17 @@ i32 DetermineDataFormat(char* string)
 
 void ParseFloatMembers(char* rowString, memory_arena* objArena, r32* storageArray, i32* storageIndex, i32 itemsPerRow)
 {
-    //Figure out how to make this loop based on the amount in the row
     find_string_value_data stringData = {};
     stringData.i = 2;
     stringData.start = stringData.i;
     for (i32 i = 0; i < itemsPerRow; i++)
     {
 	FindNextValueStr(rowString, objArena, &stringData);
-	r32 convertedFloatValue = StrToR32(stringData.newString, stringData.stringLength);
+	r32 convertedFloatValue = (r32)atof(stringData.newString);
 	storageArray[(*storageIndex)++] = convertedFloatValue;
 	stringData.start = stringData.i;
     }
 }
-
-i32 FindDistanceToNextSlash(char* string)
-{
-    i32 i = 0;
-    while (string[i] != '/')
-    {
-	if (string[i] == NULL)
-	{
-	    break;
-	}
-	i++;
-    }
-    return(i);
-}
-
-
 
 i32 FindIntFromFaceValue(i32* startLocation, char* stringValue)
 {
