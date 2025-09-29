@@ -4,7 +4,7 @@
 #include "../../MemoryPools/code/memory_pool_dll_include.h"
 #include <libloaderapi.h>
 
-#define RUN_PERFORMANCE_TIMER 0
+#define RUN_PERFORMANCE_TIMER 1
 
 #if RUN_PERFORMANCE_TIMER
 #include <windows.h>
@@ -20,11 +20,30 @@
    
    Reach goal:
    - Create the ability to load in different OS besides windows
-  
+
+
+   YOUR INSTRUCTION SET:
+   SSE4.1, SSE4.2 AVX2 (64 bit)
+ */
+
+/*
+  How can you optimize this:
+   - Uhhhhhhh, not quite as many loops probably
+   - Find a better way to search through char*
+   - Use intrinsics
+   - Bit shifting?
+   - Finally use multiple threads, but thats like the last resort
+ */
+
+/*
+  Surprisingly, this isn't that slow...
+  Order of importance:
+   - Solve rounding issues
+   - Throw into Direct3D
  */
 
 global_variable memory_pool_dll_code memoryPoolCode;
-
+global_variable i64 perfCountFrequency;
 #define INITIALIZE_GAME_MEMORY 1
 
 enum data_format
@@ -36,6 +55,26 @@ enum data_format
     e_vertex_texture_coords = 234,
 };
 
+/*
+  At some point make our timer it's own library when I feel like it but rn just doing some tests so it don't rly matter
+ */
+
+
+
+inline LARGE_INTEGER
+Win32GetWallClock(void)
+{
+    LARGE_INTEGER result;
+    QueryPerformanceCounter(&result);
+    return(result);
+}
+
+inline r32
+Win32GetSecondsElapsed(LARGE_INTEGER start, LARGE_INTEGER end)
+{
+    r32 result = ((r32)(end.QuadPart - start.QuadPart) / (r32)perfCountFrequency);
+    return(result);
+}
 
 r32 StrToR32(char* character, i32 length)
 {
@@ -76,6 +115,9 @@ r32 StrToR32(char* character, i32 length)
     }
     
 
+    //Rather than using this place type shi, use bit shifting?
+    //Either way you still should try to find a better way to search for the next escape character
+    //Look into memchr
     for (i32 j = 1; j < i; j++)
     {
 	
@@ -217,7 +259,6 @@ i32 FindIntFromFaceValue(i32* startLocation, char* stringValue)
 	    break;
 	}
 	place *= 10;
-
     }
 
     while (stringValue[j] != '/')
@@ -246,7 +287,6 @@ void ParseFaceValues(char* rowString, memory_arena* objArena, i32* storageArray,
 	//This doesn't seem to work well for this portion
 	FindNextValueStr(rowString, objArena, &blockString);
 	
-	char* testString = "10/2/2";
 	find_string_value_data integerString = {};
 	//This needs to happen 3 times
 	i32 newStartLocation = 0;
@@ -260,7 +300,7 @@ void ParseFaceValues(char* rowString, memory_arena* objArena, i32* storageArray,
     }
 }
 
-obj* LoadOBJFile(char* fileLocation, memory_arena* objLocationArena, program_memory* mainProgramMemory)
+obj* ParseOBJData(char* fileLocation, memory_arena* objLocationArena, program_memory* mainProgramMemory)
 {
     //Replace this with paramter
 
@@ -464,6 +504,7 @@ obj* LoadOBJFile(char* fileLocation, memory_arena* objLocationArena, program_mem
     return(result);
 }
 
+/*
 int main(void)
 {
 #if INITIALIZE_GAME_MEMORY
@@ -472,7 +513,25 @@ int main(void)
     char* tempFileLocation = "../misc/OBJtester.obj";
 #endif
 
-    LoadOBJFile(tempFileLocation, &tempObjArena, &tempProgramMemory);
+#if RUN_PERFORMANCE_TIMER
+    LARGE_INTEGER perfCountFrequencyResult;
+    QueryPerformanceFrequency(&perfCountFrequencyResult);
+    perfCountFrequency = perfCountFrequencyResult.QuadPart;
+    LARGE_INTEGER startCounter = Win32GetWallClock();
+#endif
+    ParseOBJData(tempFileLocation, &tempObjArena, &tempProgramMemory);
+
+#if RUN_PERFORMANCE_TIMER
+    LARGE_INTEGER endCounter = Win32GetWallClock();
+    r32 msPerRun = (1000.0f * (Win32GetSecondsElapsed(startCounter, endCounter)));
+    char textBuffer[256];
+    sprintf_s(textBuffer, sizeof(textBuffer),
+	      "Time Spend Running: %f\n",
+	      msPerRun);
+    
+    OutputDebugString(textBuffer);
+#endif    
     return(0);
 }
 
+*/
