@@ -6,6 +6,20 @@
 void DirectXLoadOBJ(char* fileLocation, memory_arena* objLocationArena, program_memory* mainProgramMemory)
 {
     obj* parsedOBJData = ParseOBJData(fileLocation, objLocationArena, mainProgramMemory);
+
+
+    
+    vertex_position_color* objVerts =
+	(vertex_position_color*)memoryPoolCode.PushArraySized(objLocationArena,
+							      sizeof(vertex_position_color) * parsedOBJData->vertexCount);
+
+    for (i32 i = 0, j = 0; i < (parsedOBJData->vertexCount * 3); i += 3, j++)
+    {
+	objVerts[j].pos.x = parsedOBJData->vertices[i];
+	objVerts[j].pos.y = parsedOBJData->vertices[i + 1];
+	objVerts[j].pos.z = parsedOBJData->vertices[i + 2];
+    }
+
 }
 
 int main(void)
@@ -22,7 +36,6 @@ int main(void)
     perfCountFrequency = perfCountFrequencyResult.QuadPart;
     LARGE_INTEGER startCounter = Win32GetWallClock();
 #endif
-//    ParseOBJData(tempFileLocation, &tempObjArena, &tempProgramMemory);
     DirectXLoadOBJ(tempFileLocation, &tempObjArena, &tempProgramMemory);
 #if RUN_PERFORMANCE_TIMER
     LARGE_INTEGER endCounter = Win32GetWallClock();

@@ -13,14 +13,23 @@
 #endif
 
 /*
+  Currently, it is intended that the OBJ file you load in is created and exported through blender and it
+  must be ensured that the faces are triangulated or else the algorithm won't work.
+ */
+
+/*
   Yeah... this is bad lmao
 
   The things to fix bc they are janky/piggy/bananacakes:
-   - 3 times through the vertex indices loops, could be more than 3 vertex indices
    - Not a huge fan of all of the while loops it takes to parse the file for multiple things
    
-   Reach goal:
+   Reach goal(s):
    - Create the ability to load in different OS besides windows
+   - Create the ability to read data that is different than what the Blender OBJ exporter defaults to
+   (i.e. the different ways in which faces are loaded in, what to do when there is no data for certain
+   data formats and so on...)
+   - Use Delaunay Triangulation to create triangles if the object is not triangulated on export
+   - Materials on the object? 
 
 
    YOUR INSTRUCTION SET:
@@ -39,6 +48,7 @@
 /*
   Surprisingly, this isn't that slow...
   Order of importance:
+   - Redo the way faces are read in
    - Throw into Direct3D
  */
 
@@ -164,25 +174,32 @@ i32 FindIntFromFaceValue(i32* startLocation, char* stringValue)
     return(result);
 }
 
-void ParseFaceValues(char* rowString, memory_arena* objArena, i32* storageArray, i32* storageIndex, i32 itemsPerRow)
+void ParseFaceValues(char* rowString, memory_arena* objArena, obj* result, i32 itemsPerRow)
 {
     find_string_value_data blockString = {};
     blockString.i = 2;
     blockString.start = blockString.i;
     for (i32 i = 0; i < itemsPerRow; i++)
     {
-	//This doesn't seem to work well for this portion
 	FindNextValueStr(rowString, objArena, &blockString);
 	
 	find_string_value_data integerString = {};
 	//This needs to happen 3 times
 	i32 newStartLocation = 0;
-	for (i32 j = 0; j < 3; j++)
-	{
-	    //Update the position at which to check the string for new values
-	    i32 integer = FindIntFromFaceValue(&newStartLocation, &blockString.newString[newStartLocation]);
-	    storageArray[(*storageIndex)++] = integer;
-	}
+
+	//Again this only accounts for the v/vt/vn face set up and not the others
+	i32 storageIndex = result->faceLastIndex;
+	i32 integer = FindIntFromFaceValue(&newStartLocation, &blockString.newString[newStartLocation]);
+	result->vertexIndices[storageIndex] = integer;
+
+	integer = FindIntFromFaceValue(&newStartLocation, &blockString.newString[newStartLocation]);
+	result->vertexTextureCoordIndices[storageIndex] = integer;
+
+	integer = FindIntFromFaceValue(&newStartLocation, &blockString.newString[newStartLocation]);
+	result->vertexNormalIndices[storageIndex] = integer;	
+
+	result->faceLastIndex++;
+
 	blockString.start = blockString.i;
     }
 }
@@ -289,20 +306,13 @@ obj* ParseOBJData(char* fileLocation, memory_arena* objLocationArena, program_me
     i = 0;
 
 
-#if 1    
-    result->vertexIndices = (r32*)memoryPoolCode.PushArraySized(objLocationArena, (sizeof(r32) * result->vertexCount) * 3);
+
+    result->vertices = (r32*)memoryPoolCode.PushArraySized(objLocationArena, (sizeof(r32) * result->vertexCount) * 3);
     result->vertexNormals = (r32*)memoryPoolCode.PushArraySized(objLocationArena, (sizeof(r32) * result->vertexNormalCount) * 3);
     result->vertexTextureCoordinates = (r32*)memoryPoolCode.PushArraySized(objLocationArena, (sizeof(r32) * result->vertexTextureCoordCount) * 2);
     result->face = (i32*)memoryPoolCode.PushArraySized(objLocationArena, (sizeof(i32) * result->faceCount) * 3);    
 
-#else    
-    result->vertexIndices = (r32*)memoryPoolCode.PushArray(objLocationArena, result->vertexCount, result->vertexIndices);
-    result->vertexNormals = (r32*)memoryPoolCode.PushArray(objLocationArena, result->vertexNormalCount, result->vertexNormals);
-    result->vertexTextureCoordinates = (r32*)memoryPoolCode.PushArray(objLocationArena, result->vertexTextureCoordCount, result->vertexTextureCoordinates);
-    result->face = (i32*)memoryPoolCode.PushArray(objLocationArena, result->faceCount, result->face);
-
-#endif
-    
+    bool32 faceMemoryInitialized = false;
     while (parsee[i] != NULL)
     {
 	if (parsee[i] == '\n')
@@ -310,7 +320,7 @@ obj* ParseOBJData(char* fileLocation, memory_arena* objLocationArena, program_me
 	    //Find next line
 	    //Figure out the proper designation for the value of the line (v, f, vt...)
 
-	    i32 desVal = DetermineDataFormat(&parsee[i + 1]);
+	    i32 dataFormat = DetermineDataFormat(&parsee[i + 1]);
 
 	    i32 j = i + 1;
 	    i32 itemsPerRow = 0;
@@ -337,7 +347,7 @@ obj* ParseOBJData(char* fileLocation, memory_arena* objLocationArena, program_me
 		rowData[f] = parsee[k];
 	    }
 
-	    switch (desVal)
+	    switch (dataFormat)
 	    {
 	    case e_comment:
 	    {
@@ -347,17 +357,32 @@ obj* ParseOBJData(char* fileLocation, memory_arena* objLocationArena, program_me
 	    } break;
 	    case e_face:
 	    {
+		if (!faceMemoryInitialized)
+		{
+		    result->vertexIndices = (i32*)memoryPoolCode.PushArraySized(objLocationArena,
+										(sizeof(i32) * result->faceCount)
+										* itemsPerRow);
+		    result->vertexNormalIndices = (i32*)memoryPoolCode.PushArraySized(objLocationArena,
+										      (sizeof(i32) *
+										       result->faceCount) *
+										      itemsPerRow);
+		    result->vertexTextureCoordIndices = (i32*)memoryPoolCode.PushArraySized(objLocationArena,
+											    (sizeof(i32) *
+											    result->faceCount) *
+											    itemsPerRow);
+		    faceMemoryInitialized = true;
+		}
+		
 		ParseFaceValues(rowData,
 				&objArena,
-				result->face,
-				&result->faceLastIndex,
+				result,
 				itemsPerRow);
 	    } break;
 	    case e_vertex:
 	    {
 		ParseFloatMembers(rowData,
 				  &objArena,
-				  result->vertexIndices,
+				  result->vertices,
 				  &result->vertexLastIndex,
 				  itemsPerRow);
 	    } break;
