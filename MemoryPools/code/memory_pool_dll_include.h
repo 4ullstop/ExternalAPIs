@@ -35,7 +35,7 @@ MEMORY_POOL_INITIALIZE_ARENA(PoolInitializeStub)
 
 }
 global_variable memory_pool_initialize_arena* InitializeArena_ = PoolInitializeStub;
-#define InitializeArena InitilaizeArena_
+#define InitializeArena InitializeArena_
 
 #define MEMORY_POOL_CLEAR_ARENA(name) void name(memory_arena* arena)
 typedef MEMORY_POOL_CLEAR_ARENA(memory_pool_clear_arena);

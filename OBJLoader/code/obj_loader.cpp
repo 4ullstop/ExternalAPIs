@@ -28,7 +28,8 @@
    - Create the ability to read data that is different than what the Blender OBJ exporter defaults to
    (i.e. the different ways in which faces are loaded in, what to do when there is no data for certain
    data formats and so on...)
-   - Use Delaunay Triangulation to create triangles if the object is not triangulated on export
+   - Use Delaunay Triangulation to create triangles if the object is not triangulated on export, or not, bc
+   you're dealing with indices as opposed to the actual vertex data
    - Materials on the object? 
 
 
@@ -190,13 +191,13 @@ void ParseFaceValues(char* rowString, memory_arena* objArena, obj* result, i32 i
 	//Again this only accounts for the v/vt/vn face set up and not the others
 	i32 storageIndex = result->faceLastIndex;
 	i32 integer = FindIntFromFaceValue(&newStartLocation, &blockString.newString[newStartLocation]);
-	result->vertexIndices[storageIndex] = integer;
+	result->vertexIndices[storageIndex] = (u16)integer;
 
 	integer = FindIntFromFaceValue(&newStartLocation, &blockString.newString[newStartLocation]);
-	result->vertexTextureCoordIndices[storageIndex] = integer;
+	result->vertexTextureCoordIndices[storageIndex] = (u16)integer;
 
 	integer = FindIntFromFaceValue(&newStartLocation, &blockString.newString[newStartLocation]);
-	result->vertexNormalIndices[storageIndex] = integer;	
+	result->vertexNormalIndices[storageIndex] = (u16)integer;	
 
 	result->faceLastIndex++;
 
@@ -359,14 +360,14 @@ obj* ParseOBJData(char* fileLocation, memory_arena* objLocationArena, program_me
 	    {
 		if (!faceMemoryInitialized)
 		{
-		    result->vertexIndices = (i32*)memoryPoolCode.PushArraySized(objLocationArena,
+		    result->vertexIndices = (u16*)memoryPoolCode.PushArraySized(objLocationArena,
 										(sizeof(i32) * result->faceCount)
 										* itemsPerRow);
-		    result->vertexNormalIndices = (i32*)memoryPoolCode.PushArraySized(objLocationArena,
+		    result->vertexNormalIndices = (u16*)memoryPoolCode.PushArraySized(objLocationArena,
 										      (sizeof(i32) *
 										       result->faceCount) *
 										      itemsPerRow);
-		    result->vertexTextureCoordIndices = (i32*)memoryPoolCode.PushArraySized(objLocationArena,
+		    result->vertexTextureCoordIndices = (u16*)memoryPoolCode.PushArraySized(objLocationArena,
 											    (sizeof(i32) *
 											    result->faceCount) *
 											    itemsPerRow);
