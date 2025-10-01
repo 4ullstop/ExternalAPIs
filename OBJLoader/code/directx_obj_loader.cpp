@@ -1,13 +1,16 @@
 #include "directx_obj_loader.h"
 #include "obj_loader.h"
 #include "obj_loader.cpp"
+#include <d3d11.h>
 
 //This function is the function we will load as a dll, bc it is specific to the operating system
-void DirectXLoadOBJ(char* fileLocation, memory_arena* objLocationArena, program_memory* mainProgramMemory)
+
+direct_x_loaded_buffers* DirectXLoadOBJ(char* fileLocation, memory_arena* objLocationArena, program_memory* mainProgramMemory, ID3D11Device* device)
 {
+    direct_x_loaded_buffers* result = (direct_x_loaded_buffers*)memoryPoolCode.PushStruct(objLocationArena, sizeof(direct_x_loaded_buffers));
     obj* parsedOBJData = ParseOBJData(fileLocation, objLocationArena, mainProgramMemory);
 
-    size_t objVertsSize = sizeof(vertex_position_color) * parsedOBJData->vertexCount;
+    u32 objVertsSize = sizeof(vertex_position_color) * parsedOBJData->vertexCount;
     
     vertex_position_color* objVerts =
 	(vertex_position_color*)memoryPoolCode.PushArraySized(objLocationArena, objVertsSize);
@@ -36,7 +39,31 @@ void DirectXLoadOBJ(char* fileLocation, memory_arena* objLocationArena, program_
     vertexData.SysMemPitch = 0;
     vertexData.SysMemSlicePitch = 0;
 
+    device->CreateBuffer(
+	&vertexDesc,
+	&vertexData,
+	&result->vertexBuffer);
+    //cubeBuffer->vertexBuffer is the storage location of the buffer, make this better, make it a return type?
+    
     //Oh, I actually need things from the main program here that I don't have and don't want to waste time creating
+
+    //The number of indices is similar to the number of ur mom
+    CD3D11_BUFFER_DESC indexDesc(
+	sizeof(u16) * parsedOBJData->faceLastIndex,
+	D3D11_BIND_INDEX_BUFFER);
+
+    D3D11_SUBRESOURCE_DATA indexData;
+    ZeroMemory(&indexData, sizeof(D3D11_SUBRESOURCE_DATA));
+    indexData.pSysMem = parsedOBJData->vertexIndices;
+    indexData.SysMemPitch = 0;
+    indexData.SysMemSlicePitch = 0;
+
+    device->CreateBuffer(
+	&indexDesc,
+	&indexData,
+	&result->indexBuffer);
+
+    return(result);
 }
 
 int main(void)
@@ -44,7 +71,7 @@ int main(void)
 #if INITIALIZE_GAME_MEMORY
     memory_arena tempObjArena = {};
     program_memory tempProgramMemory = {};
-    char* tempFileLocation = "../misc/OBJtester.obj";
+    char* tempFileLocation = "../misc/cubetester2.obj";
 #endif
 
 #if RUN_PERFORMANCE_TIMER
@@ -53,7 +80,7 @@ int main(void)
     perfCountFrequency = perfCountFrequencyResult.QuadPart;
     LARGE_INTEGER startCounter = Win32GetWallClock();
 #endif
-    DirectXLoadOBJ(tempFileLocation, &tempObjArena, &tempProgramMemory);
+//    DirectXLoadOBJ(tempFileLocation, &tempObjArena, &tempProgramMemory);
 #if RUN_PERFORMANCE_TIMER
     LARGE_INTEGER endCounter = Win32GetWallClock();
     r32 msPerRun = (1000.0f * (Win32GetSecondsElapsed(startCounter, endCounter)));

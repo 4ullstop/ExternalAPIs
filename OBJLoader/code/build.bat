@@ -7,6 +7,6 @@ set commonCompilerFlags=-nologo -Gm- -GR- -EHa- -Oi -WX -W4 -wd4201 -wd4100 -wd4
 
 set commonLinkerFlags= -incremental:no user32.lib gdi32.lib winmm.lib
 
-cl %commonCompilerFlags% ..\code\directx_obj_loader.cpp  /link 
+cl %commonCompilerFlags% ..\code\directx_obj_loader.cpp  /LD /link /EXPORT:DirectXLoadOBJ
 
 popd
