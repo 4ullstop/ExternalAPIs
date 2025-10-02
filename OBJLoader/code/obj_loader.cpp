@@ -228,8 +228,10 @@ obj* ParseOBJData(char* fileLocation, memory_arena* objLocationArena, program_me
     obj* result = 0;
     
     //Yes this is specific to win32, fix it later...
-    HMODULE memoryPoolLibrary = LoadLibrary("../../MemoryPools/dll/memory_pools.dll");
+    HMODULE memoryPoolLibrary = LoadLibrary("D:/ExternalCustomAPIs/MemoryPools/dll/memory_pools.dll");
 
+    DWORD lastError = {};
+    lastError = GetLastError();    
     if (memoryPoolLibrary)
     {
 	memoryPoolCode.PushStruct = (memory_pool_push_struct*)GetProcAddress(memoryPoolLibrary, "PushStruct");

@@ -5,11 +5,13 @@
 
 //This function is the function we will load as a dll, bc it is specific to the operating system
 
-direct_x_loaded_buffers* DirectXLoadOBJ(char* fileLocation, memory_arena* objLocationArena, program_memory* mainProgramMemory, ID3D11Device* device)
+void DirectXLoadOBJ(char* fileLocation, memory_arena* objLocationArena, program_memory* mainProgramMemory, ID3D11Device* device, direct_x_loaded_buffers* loadedBuffers)
 {
-    direct_x_loaded_buffers* result = (direct_x_loaded_buffers*)memoryPoolCode.PushStruct(objLocationArena, sizeof(direct_x_loaded_buffers));
+
     obj* parsedOBJData = ParseOBJData(fileLocation, objLocationArena, mainProgramMemory);
 
+
+    
     u32 objVertsSize = sizeof(vertex_position_color) * parsedOBJData->vertexCount;
     
     vertex_position_color* objVerts =
@@ -29,6 +31,8 @@ direct_x_loaded_buffers* DirectXLoadOBJ(char* fileLocation, memory_arena* objLoc
     //We'll do here for now...
 
     //In order to create a model, we have to bind it's info to a buffer for the gpu to use?
+    HRESULT hr = {};
+    
     CD3D11_BUFFER_DESC vertexDesc(
 	objVertsSize,
 	D3D11_BIND_VERTEX_BUFFER);
@@ -39,10 +43,10 @@ direct_x_loaded_buffers* DirectXLoadOBJ(char* fileLocation, memory_arena* objLoc
     vertexData.SysMemPitch = 0;
     vertexData.SysMemSlicePitch = 0;
 
-    device->CreateBuffer(
+    hr = device->CreateBuffer(
 	&vertexDesc,
 	&vertexData,
-	&result->vertexBuffer);
+	&loadedBuffers->vertexBuffer);
     //cubeBuffer->vertexBuffer is the storage location of the buffer, make this better, make it a return type?
     
     //Oh, I actually need things from the main program here that I don't have and don't want to waste time creating
@@ -57,15 +61,17 @@ direct_x_loaded_buffers* DirectXLoadOBJ(char* fileLocation, memory_arena* objLoc
     indexData.pSysMem = parsedOBJData->vertexIndices;
     indexData.SysMemPitch = 0;
     indexData.SysMemSlicePitch = 0;
-
-    device->CreateBuffer(
+    
+    hr = device->CreateBuffer(
 	&indexDesc,
 	&indexData,
-	&result->indexBuffer);
+	&loadedBuffers->indexBuffer);
 
-    return(result);
+    loadedBuffers->indexCount = parsedOBJData->faceLastIndex;
 }
 
+
+#if 0
 int main(void)
 {
 #if INITIALIZE_GAME_MEMORY
@@ -94,3 +100,4 @@ int main(void)
     return(0);
 }
 
+#endif 
