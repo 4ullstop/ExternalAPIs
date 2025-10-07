@@ -18,8 +18,6 @@
  */
 
 /*
-  Yeah... this is bad lmao
-
   The things to fix bc they are janky/piggy/bananacakes:
    - Not a huge fan of all of the while loops it takes to parse the file for multiple things
    
@@ -28,8 +26,6 @@
    - Create the ability to read data that is different than what the Blender OBJ exporter defaults to
    (i.e. the different ways in which faces are loaded in, what to do when there is no data for certain
    data formats and so on...)
-   - Use Delaunay Triangulation to create triangles if the object is not triangulated on export, or not, bc
-   you're dealing with indices as opposed to the actual vertex data
    - Materials on the object? 
 
 

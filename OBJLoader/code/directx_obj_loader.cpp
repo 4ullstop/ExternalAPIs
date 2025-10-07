@@ -5,6 +5,13 @@
 
 //This function is the function we will load as a dll, bc it is specific to the operating system
 
+struct r32_3
+{
+    r32 x;
+    r32 y;
+    r32 z;    
+};
+
 void DirectXLoadOBJ(char* fileLocation, memory_arena* objLocationArena, program_memory* mainProgramMemory, ID3D11Device* device, direct_x_loaded_buffers* loadedBuffers)
 {
 
@@ -18,11 +25,55 @@ void DirectXLoadOBJ(char* fileLocation, memory_arena* objLocationArena, program_
 	(vertex_position_color*)memoryPoolCode.PushArraySized(objLocationArena, objVertsSize);
 
 
-    for (i32 i = 0, j = 0; i < (parsedOBJData->vertexCount * 3); i += 3, j++)
+#if 0    
+    DirectX::XMFLOAT3 testColors[] = {
+	DirectX::XMFLOAT3(0, 0, 0),
+	DirectX::XMFLOAT3(0, 0, 1),
+	DirectX::XMFLOAT3(0, 1, 0),
+	DirectX::XMFLOAT3(0, 1, 1),
+	DirectX::XMFLOAT3(1, 0, 0),
+	DirectX::XMFLOAT3(1, 0, 1),
+	DirectX::XMFLOAT3(1, 1, 0),
+	DirectX::XMFLOAT3(1, 1, 1),		
+    };
+#else
+
+    r32_3 testColors[] =
+    {
+	{1, 0, 0},
+	{0, 1, 0},
+	{0, 0, 1},
+	{1, 0, 0},
+	{0, 0, 0},
+	{0, 0, 0},
+	{0, 0, 0},
+	{0, 0, 0},
+    };
+
+#if 0	
+    DirectX::XMFLOAT3 testColors[] = {
+	DirectX::XMFLOAT3(0, 0, 0),
+	DirectX::XMFLOAT3(0, 1, 0),
+	DirectX::XMFLOAT3(0, 0, 1),
+	DirectX::XMFLOAT3(1, 0, 0),
+	DirectX::XMFLOAT3(0, 0, 0),
+	DirectX::XMFLOAT3(0, 0, 0),
+	DirectX::XMFLOAT3(0, 0, 0),
+	DirectX::XMFLOAT3(0, 0, 0),		
+    };
+#endif    
+#endif
+
+
+    for (i32 i = 0, j = 0; j < parsedOBJData->vertexCount; i += 3, j++)
     {
 	objVerts[j].pos.x = parsedOBJData->vertices[i];
 	objVerts[j].pos.y = parsedOBJData->vertices[i + 1];
 	objVerts[j].pos.z = parsedOBJData->vertices[i + 2];
+
+	DirectX::XMFLOAT3 vertColor = {testColors[j].x, testColors[j].y, testColors[j].z};
+	
+	objVerts[j].color = vertColor;
     }
 
     //Now we do the fun stuff where load this info into buffers
@@ -51,7 +102,6 @@ void DirectXLoadOBJ(char* fileLocation, memory_arena* objLocationArena, program_
     
     //Oh, I actually need things from the main program here that I don't have and don't want to waste time creating
 
-    //The number of indices is similar to the number of ur mom
     CD3D11_BUFFER_DESC indexDesc(
 	sizeof(u16) * parsedOBJData->faceLastIndex,
 	D3D11_BIND_INDEX_BUFFER);
@@ -67,7 +117,7 @@ void DirectXLoadOBJ(char* fileLocation, memory_arena* objLocationArena, program_
 	&indexData,
 	&loadedBuffers->indexBuffer);
 
-    loadedBuffers->indexCount = parsedOBJData->faceLastIndex;
+    loadedBuffers->indexCount = parsedOBJData->faceLastIndex + 1;
 }
 
 
