@@ -19,7 +19,7 @@ void DirectXLoadOBJ(char* fileLocation, memory_arena* objLocationArena, program_
 
 
     
-    u32 objVertsSize = sizeof(vertex_position_color) * parsedOBJData->vertexCount;
+    u32 objVertsSize = sizeof(vertex_position_color) * (parsedOBJData->vertexCount);
     
     vertex_position_color* objVerts =
 	(vertex_position_color*)memoryPoolCode.PushArraySized(objLocationArena, objVertsSize);
@@ -40,14 +40,14 @@ void DirectXLoadOBJ(char* fileLocation, memory_arena* objLocationArena, program_
 
     r32_3 testColors[] =
     {
-	{1, 0, 0},
-	{0, 1, 0},
-	{0, 0, 1},
-	{1, 0, 0},
-	{0, 0, 0},
-	{0, 0, 0},
-	{0, 0, 0},
-	{0, 0, 0},
+	{0, 0, 0}, //0
+	{1, 0, 0}, //1
+	{0, 1, 0}, //2
+	{0, 0, 1}, //3
+	{1, 0, 1}, //4
+	{0, 1, 1}, //5
+	{1, 1, 0}, //6
+	{1, 1, 1}, //7
     };
 
 #if 0	
@@ -55,11 +55,11 @@ void DirectXLoadOBJ(char* fileLocation, memory_arena* objLocationArena, program_
 	DirectX::XMFLOAT3(0, 0, 0),
 	DirectX::XMFLOAT3(0, 1, 0),
 	DirectX::XMFLOAT3(0, 0, 1),
-	DirectX::XMFLOAT3(1, 0, 0),
 	DirectX::XMFLOAT3(0, 0, 0),
 	DirectX::XMFLOAT3(0, 0, 0),
 	DirectX::XMFLOAT3(0, 0, 0),
-	DirectX::XMFLOAT3(0, 0, 0),		
+	DirectX::XMFLOAT3(0, 0, 0),
+	DirectX::XMFLOAT3(1, 0, 0),		
     };
 #endif    
 #endif
@@ -68,13 +68,19 @@ void DirectXLoadOBJ(char* fileLocation, memory_arena* objLocationArena, program_
     for (i32 i = 0, j = 0; j < parsedOBJData->vertexCount; i += 3, j++)
     {
 	objVerts[j].pos.x = parsedOBJData->vertices[i];
-	objVerts[j].pos.y = parsedOBJData->vertices[i + 1];
-	objVerts[j].pos.z = parsedOBJData->vertices[i + 2];
+	objVerts[j].pos.y = parsedOBJData->vertices[i + 2];
+	objVerts[j].pos.z = parsedOBJData->vertices[i + 1];
 
 	DirectX::XMFLOAT3 vertColor = {testColors[j].x, testColors[j].y, testColors[j].z};
-	
+
+
 	objVerts[j].color = vertColor;
+	parsedOBJData->vertexIndices[i] = parsedOBJData->vertexIndices[i] - 1;
+	parsedOBJData->vertexIndices[i + 1] = parsedOBJData->vertexIndices[i + 1] - 1;
+	parsedOBJData->vertexIndices[i + 2] = parsedOBJData->vertexIndices[i + 2] - 1;
     }
+
+    
 
     //Now we do the fun stuff where load this info into buffers
     //Do we want to load into buffers here? Or in the main program itself?
