@@ -40,14 +40,14 @@ void DirectXLoadOBJ(char* fileLocation, memory_arena* objLocationArena, program_
 
     r32_3 testColors[] =
     {
-	{0, 0, 0}, //0
-	{1, 0, 0}, //1
-	{0, 1, 0}, //2
-	{0, 0, 1}, //3
-	{1, 0, 1}, //4
-	{0, 1, 1}, //5
-	{1, 1, 0}, //6
-	{1, 1, 1}, //7
+	{0, 0, 0}, //0 Black
+	{1, 0, 0}, //1 Red
+	{0, 1, 0}, //2 Green
+	{0, 0, 1}, //3 Blue
+	{1, 0, 1}, //4 Magenta
+	{0, 1, 1}, //5 Cyan
+	{1, 1, 0}, //6 Yellow
+	{1, 1, 1}, //7 White
     };
 
 #if 0	
@@ -75,12 +75,17 @@ void DirectXLoadOBJ(char* fileLocation, memory_arena* objLocationArena, program_
 
 
 	objVerts[j].color = vertColor;
+#if 0	
 	parsedOBJData->vertexIndices[i] = parsedOBJData->vertexIndices[i] - 1;
 	parsedOBJData->vertexIndices[i + 1] = parsedOBJData->vertexIndices[i + 1] - 1;
 	parsedOBJData->vertexIndices[i + 2] = parsedOBJData->vertexIndices[i + 2] - 1;
+#endif	
     }
 
-    
+    for (i32 i = 0; i < parsedOBJData->faceLastIndex; i++)
+    {
+	parsedOBJData->vertexIndices[i]--;
+    }
 
     //Now we do the fun stuff where load this info into buffers
     //Do we want to load into buffers here? Or in the main program itself?
@@ -123,7 +128,7 @@ void DirectXLoadOBJ(char* fileLocation, memory_arena* objLocationArena, program_
 	&indexData,
 	&loadedBuffers->indexBuffer);
 
-    loadedBuffers->indexCount = parsedOBJData->faceLastIndex + 1;
+    loadedBuffers->indexCount = parsedOBJData->faceLastIndex;
 }
 
 
