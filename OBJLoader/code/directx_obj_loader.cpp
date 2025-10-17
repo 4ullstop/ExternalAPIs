@@ -68,10 +68,10 @@ void DirectXLoadOBJ(char* fileLocation, memory_arena* objLocationArena, program_
     for (i32 i = 0, j = 0; j < parsedOBJData->vertexCount; i += 3, j++)
     {
 	objVerts[j].pos.x = parsedOBJData->vertices[i];
-	objVerts[j].pos.y = parsedOBJData->vertices[i + 2];
-	objVerts[j].pos.z = parsedOBJData->vertices[i + 1];
+	objVerts[j].pos.y = parsedOBJData->vertices[i + 1];
+	objVerts[j].pos.z = parsedOBJData->vertices[i + 2];
 
-	DirectX::XMFLOAT3 vertColor = {testColors[j].x, testColors[j].y, testColors[j].z};
+	DirectX::XMFLOAT3 vertColor = {1.0f, 1.0f, 1.0f};
 
 
 	objVerts[j].color = vertColor;

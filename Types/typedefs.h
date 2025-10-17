@@ -27,6 +27,8 @@
 #define ArrayCount(Array) (sizeof(Array) / sizeof((Array)[0]))
 #define pi32 3.14159265359f
 
+#define ToRadians(degrees) (degrees * (pi32 / 180.0f))
+
 #if TEST_SLOW
 #define Assert(expression) if (!(expression)) *(int*)0 = 0;
 #else
