@@ -22,7 +22,15 @@ struct obj
     i32* face;
     i32 faceCount;
     i32 faceLastIndex;
+
+    bool32* renderFace;
+    //Grab the verts of the face via: face[i + 6]
+
+    //Temporary, not final, just need something for testing code
+    r32* colors;
 };
+
+
 
 #define OBJ_LOADER_H
 #endif

@@ -25,19 +25,6 @@ void DirectXLoadOBJ(char* fileLocation, memory_arena* objLocationArena, program_
 	(vertex_position_color*)memoryPoolCode.PushArraySized(objLocationArena, objVertsSize);
 
 
-#if 0    
-    DirectX::XMFLOAT3 testColors[] = {
-	DirectX::XMFLOAT3(0, 0, 0),
-	DirectX::XMFLOAT3(0, 0, 1),
-	DirectX::XMFLOAT3(0, 1, 0),
-	DirectX::XMFLOAT3(0, 1, 1),
-	DirectX::XMFLOAT3(1, 0, 0),
-	DirectX::XMFLOAT3(1, 0, 1),
-	DirectX::XMFLOAT3(1, 1, 0),
-	DirectX::XMFLOAT3(1, 1, 1),		
-    };
-#else
-
     r32_3 testColors[] =
     {
 	{0, 0, 0}, //0 Black
@@ -50,36 +37,23 @@ void DirectXLoadOBJ(char* fileLocation, memory_arena* objLocationArena, program_
 	{1, 1, 1}, //7 White
     };
 
-#if 0	
-    DirectX::XMFLOAT3 testColors[] = {
-	DirectX::XMFLOAT3(0, 0, 0),
-	DirectX::XMFLOAT3(0, 1, 0),
-	DirectX::XMFLOAT3(0, 0, 1),
-	DirectX::XMFLOAT3(0, 0, 0),
-	DirectX::XMFLOAT3(0, 0, 0),
-	DirectX::XMFLOAT3(0, 0, 0),
-	DirectX::XMFLOAT3(0, 0, 0),
-	DirectX::XMFLOAT3(1, 0, 0),		
-    };
-#endif    
-#endif
 
 
     for (i32 i = 0, j = 0; j < parsedOBJData->vertexCount; i += 3, j++)
     {
 	objVerts[j].pos.x = parsedOBJData->vertices[i];
-	objVerts[j].pos.y = parsedOBJData->vertices[i + 1];
-	objVerts[j].pos.z = parsedOBJData->vertices[i + 2];
+	objVerts[j].pos.y = parsedOBJData->vertices[i + 2];
+	objVerts[j].pos.z = parsedOBJData->vertices[i + 1];
 
+#if 0
 	DirectX::XMFLOAT3 vertColor = {1.0f, 1.0f, 1.0f};
 
+#else
+	DirectX::XMFLOAT3 vertColor = {testColors[j].x, testColors[j].y, testColors[j].z};
+#endif	
 
 	objVerts[j].color = vertColor;
-#if 0	
-	parsedOBJData->vertexIndices[i] = parsedOBJData->vertexIndices[i] - 1;
-	parsedOBJData->vertexIndices[i + 1] = parsedOBJData->vertexIndices[i + 1] - 1;
-	parsedOBJData->vertexIndices[i + 2] = parsedOBJData->vertexIndices[i + 2] - 1;
-#endif	
+
     }
 
     for (i32 i = 0; i < parsedOBJData->faceLastIndex; i++)
