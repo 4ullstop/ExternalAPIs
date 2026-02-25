@@ -28,7 +28,7 @@ MEMORY_POOL_ALLOC(PoolAllocStub)
 global_variable memory_pool_alloc* PoolAlloc_ = PoolAllocStub;
 #define PoolAlloc PoolAlloc_
 
-#define MEMORY_POOL_INITIALIZE_ARENA(name) void name(memory_arena* arena, memory_index size, u8* base)
+#define MEMORY_POOL_INITIALIZE_ARENA(name) void name(memory_arena* arena, memory_index size, program_memory* memory, e_arena_type arenaType)
 typedef MEMORY_POOL_INITIALIZE_ARENA(memory_pool_initialize_arena);
 MEMORY_POOL_INITIALIZE_ARENA(PoolInitializeStub)
 {
@@ -36,6 +36,15 @@ MEMORY_POOL_INITIALIZE_ARENA(PoolInitializeStub)
 }
 global_variable memory_pool_initialize_arena* InitializeArena_ = PoolInitializeStub;
 #define InitializeArena InitializeArena_
+
+#define MEMORY_POOL_INITIALIZE_ARENA2(name) void name(memory_arena* arena, memory_index size, u8* base)
+typedef MEMORY_POOL_INITIALIZE_ARENA2(memory_pool_initialize_arena2);
+MEMORY_POOL_INITIALIZE_ARENA2(PoolInitialize2Stub)
+{
+
+}
+global_variable memory_pool_initialize_arena2* InitializeArena2_ = PoolInitialize2Stub;
+#define InitializeArena2 InitializeArena2_
 
 #define MEMORY_POOL_CLEAR_ARENA(name) void name(memory_arena* arena)
 typedef MEMORY_POOL_CLEAR_ARENA(memory_pool_clear_arena);
@@ -55,14 +64,46 @@ MEMORY_POOL_PUSH_ARRAY_SIZED(PoolPushArraySizedStub)
 global_variable memory_pool_push_array_sized* PushArraySized_ = PoolPushArraySizedStub;
 #define PushArraySized PushArraySized_
 
+#define MEMORY_POOL_INIT_LISTED_MEMORY(name) void name(listed_memory* record, memory_arena* listArena, size_t sizeOfData)
+typedef MEMORY_POOL_INIT_LISTED_MEMORY(memory_pool_init_listed_memory);
+MEMORY_POOL_INIT_LISTED_MEMORY(InitListedMemoryStub)
+{
+
+}
+global_variable memory_pool_init_listed_memory* InitListedMemory_ = InitListedMemoryStub;
+#define InitListedMemory InitListedMemory_
+
+#define MEMORY_POOL_ADD_LISTED_ITEM(name) void name(listed_memory* rec, void* data, size_t dataSize, listed_memory_node** recList)
+typedef MEMORY_POOL_ADD_LISTED_ITEM(memory_pool_add_listed_item);
+MEMORY_POOL_ADD_LISTED_ITEM(AddListedItemStub)
+{
+
+}
+global_variable memory_pool_add_listed_item* AddListedItem_ = AddListedItemStub;
+#define AddListedItem AddListedItem_
+
+#define MEMORY_POOL_REMOVE_LISTED_ITEM(name) void name(listed_memory* rec, listed_memory_node** recList)
+typedef MEMORY_POOL_REMOVE_LISTED_ITEM(memory_pool_remove_listed_item);
+MEMORY_POOL_REMOVE_LISTED_ITEM(RemoveListedItemStub)
+{
+
+}
+global_variable memory_pool_remove_listed_item* RemoveListedItem_ = RemoveListedItemStub;
+#define RemoveListedItem RemoveListedItem_
+
 struct memory_pool_dll_code
 {
     memory_pool_push_struct* PushStruct;
     memory_pool_push_array* PushArray;
     memory_pool_alloc* PoolAlloc;
-    memory_pool_initialize_arena* InitializeArena;
+    memory_pool_initialize_arena* InitArena;
+    memory_pool_initialize_arena2* InitArena2;
     memory_pool_clear_arena* ClearArena;
     memory_pool_push_array_sized* PushArraySized;
+
+    memory_pool_init_listed_memory* InitListedMemory;
+    memory_pool_add_listed_item* AddListedItem;
+    memory_pool_remove_listed_item* RemoveListedItem;
 };
 
 #define MEMORY_POOLS_DLL_INCLUDE_H

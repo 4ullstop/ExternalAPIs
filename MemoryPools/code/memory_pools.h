@@ -9,6 +9,11 @@ struct memory_arena
     memory_index used;
 };
 
+enum e_arena_type
+{
+    permanent,
+    transient,
+};
 
 struct program_memory
 {
@@ -23,7 +28,8 @@ struct program_memory
     u64 transientStorageSize;
     void* transientStorage;
 
-    u8* currentArenaBase;
+    u8* permanentArenaBase;
+    u8* transientArenaBase;
 };
 
 struct listed_memory_node
@@ -37,6 +43,9 @@ struct listed_memory_node
 struct listed_memory
 {
     size_t dataSize;
+
+    i32 numOfItems;
+    u32 totalListSize;
     
     listed_memory_node* freeNodes;
     listed_memory_node* nodeArray;
