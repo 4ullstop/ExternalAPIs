@@ -107,13 +107,6 @@ void ClearArena(memory_arena* arena)
 
 //find a way to return just the listed memory nodes as an array, but have the nodes have "allocated" data
 //associated with the returns
-
-listed_memory_node*
-PushListedMemoryNodes(memory_arena* arena, size_t sizeOfData, u32 numOfItems)
-{
-    
-}
-
 //for the love of god make sure your arenas are working as you think they are, I don't think they are
 void InitializeListedMemory(listed_memory* record, memory_arena* listArena, size_t sizeOfData)
 {
@@ -130,32 +123,25 @@ void InitializeListedMemory(listed_memory* record, memory_arena* listArena, size
 
     void* pushedSize = PushArraySized(listArena, (singleNodeSize * listCount) - singleNodeSize);
     size_t used = 0;
-    size_t base = (u8*)pushedSize;
+    u8* base = (u8*)pushedSize;
     
     for (u32 i = 0; i < listCount - 1; i++)
     {
-	void* nodeSize;
-	void* dataSize;
-    }
-    
-    record->freeNodes =
-	record->nodeArray =
-	(listed_memory_node*)PushArraySized(listArena, (singleNodeSize * listCount) - singleNodeSize);
-//since I'm already allocating larger than what is needed, find a way to subdivide such that,
-    //we allocate not only the node but divide that memory up to include the data you want to
-    //allocate as well
+	void* nodeSize = base + used;
+	used += sizeof(listed_memory_node);
+	record->nodeArray = (listed_memory_node*)nodeSize;
+	
+	void* dataSize = base + used;
+	used += sizeOfData;
+	record->nodeArray->data = dataSize;
 
-    //allocate our node data here, then we can pair the two
-    for (size_t i = 0; i < listCount - 1; i++)
-    {
-	//So rather than setting next to array + 1, we cast to u8* and increment based on size of node + size of data
-	//Might need to create special getter function for getting values of the linked list
-
-	record->nodeArray[i].next = &record->nodeArray[i + 1];
-	record->nodeArray[listSize - 1].next = 0;
+	//Now, is there a way to set the next pointer of the node here?
+	//The next node this current node would point to hasn't been created yet, but can we just cheat it?
+	listed_memory_node* next = (listed_memory_node*)(base + used);
+	next->next = record->nodeArray;
     }
 
-    
+    record->freeNodes = record->nodeArray;
 }
 
 void* ListAlloc(listed_memory* rec)
@@ -198,15 +184,27 @@ void RemoveListedItem(listed_memory* rec, listed_memory_node** recList)
     ListFree(rec, temp);
 }
 
+void* MemCpy(void* dest, void* src, size_t n)
+{
+    if (dest == nullptr) return(nullptr);
+    u8* uDest = (u8*)dest;
+    u8* uSrc = (u8*)src;
+
+    for (i32 i = 0; i < n; i++)
+    {
+	uDest[i] = uSrc[i];
+    }
+
+    return(dest);
+}
+
 void AddListedItem(listed_memory* rec, void* data, size_t dataSize, listed_memory_node** recList)
 {
     Assert(dataSize == rec->dataSize);
 
     listed_memory_node* newNode = (listed_memory_node*)ListAlloc(rec);
-    //You must push the data here
-//    newNode->data = data;
 
-    newNode->data = data;
+    MemCpy(newNode->data, data, dataSize);
 
     if (recList == 0)
     {
