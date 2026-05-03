@@ -49,9 +49,9 @@
    - Throw into Direct3D
  */
 
-global_variable memory_pool_dll_code memoryPoolCode;
+
 global_variable i64 perfCountFrequency;
-#define INITIALIZE_GAME_MEMORY 1
+#define INITIALIZE_GAME_MEMORY 0
 
 enum data_format
 {
@@ -93,7 +93,7 @@ struct find_string_value_data
     i32 start;
 };
 
-void FindNextValueStr(char* rowString, memory_arena* objArena, find_string_value_data* stringData)
+void FindNextValueStr(char* rowString, memory_arena* objArena, find_string_value_data* stringData, memory_pool_dll_code* memoryPoolCode)
 {
     stringData->newString = 0;
     while(rowString[++stringData->i] != ' ')
@@ -106,7 +106,7 @@ void FindNextValueStr(char* rowString, memory_arena* objArena, find_string_value
 
     stringData->stringLength = stringData->i - stringData->start;
 
-    stringData->newString = (char*)memoryPoolCode.PushArraySized(objArena, sizeof(char*) * stringData->stringLength);
+    stringData->newString = (char*)memoryPoolCode->PushArraySized(objArena, sizeof(char*) * stringData->stringLength);
 
     for (i32 k = stringData->start, f = 0; k < stringData->i; k++)
     {
@@ -128,14 +128,14 @@ i32 DetermineDataFormat(char* string)
     return(result);
 }
 
-void ParseFloatMembers(char* rowString, memory_arena* objArena, r32* storageArray, i32* storageIndex, i32 itemsPerRow)
+void ParseFloatMembers(char* rowString, memory_arena* objArena, r32* storageArray, i32* storageIndex, i32 itemsPerRow, memory_pool_dll_code* memoryPoolCode)
 {
     find_string_value_data stringData = {};
     stringData.i = 2;
     stringData.start = stringData.i;
     for (i32 i = 0; i < itemsPerRow; i++)
     {
-	FindNextValueStr(rowString, objArena, &stringData);
+	FindNextValueStr(rowString, objArena, &stringData, memoryPoolCode);
 	r32 convertedFloatValue = (r32)atof(stringData.newString);
 	storageArray[(*storageIndex)++] = convertedFloatValue;
 	stringData.start = stringData.i;
@@ -171,14 +171,14 @@ i32 FindIntFromFaceValue(i32* startLocation, char* stringValue)
     return(result);
 }
 
-void ParseFaceValues(char* rowString, memory_arena* objArena, obj* result, i32 itemsPerRow)
+void ParseFaceValues(char* rowString, memory_arena* objArena, obj* result, i32 itemsPerRow, memory_pool_dll_code* memoryPoolCode)
 {
     find_string_value_data blockString = {};
     blockString.i = 2;
     blockString.start = blockString.i;
     for (i32 i = 0; i < itemsPerRow; i++)
     {
-	FindNextValueStr(rowString, objArena, &blockString);
+	FindNextValueStr(rowString, objArena, &blockString, memoryPoolCode);
 	
 	find_string_value_data integerString = {};
 	//This needs to happen 3 times
@@ -201,7 +201,7 @@ void ParseFaceValues(char* rowString, memory_arena* objArena, obj* result, i32 i
     }
 }
 
-obj* ParseOBJData(char* fileLocation, memory_arena* objLocationArena, program_memory* mainProgramMemory)
+obj* ParseOBJData(char* fileLocation, memory_arena* tempArena, memory_arena* staticArena, program_memory* mainProgramMemory, memory_pool_dll_code* memoryPoolCode)
 {
     //Replace this with paramter
 
@@ -224,6 +224,8 @@ obj* ParseOBJData(char* fileLocation, memory_arena* objLocationArena, program_me
     obj* result = 0;
     
     //Yes this is specific to win32, fix it later...
+
+#if 0    
     HMODULE memoryPoolLibrary = LoadLibrary("D:/ExternalCustomAPIs/MemoryPools/dll/memory_pools.dll");
 
     DWORD lastError = {};
@@ -249,19 +251,24 @@ obj* ParseOBJData(char* fileLocation, memory_arena* objLocationArena, program_me
     memoryPoolCode.PoolAlloc(0, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE, &memory);
     memory_arena objArena = {};
     memoryPoolCode.InitializeArena(&objArena, memory.permanentStorageSize, (u8*)memory.permanentStorage);
-
+#endif
     
     //Intializing the "pre-allocated" (via main program) memory pool for testing purposes
 #if INITIALIZE_GAME_MEMORY
     mainProgramMemory->permanentStorageSize = Megabytes(64);
     mainProgramMemory->transientStorageSize = 0;
     memoryPoolCode.PoolAlloc(0, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE, mainProgramMemory);
-    memoryPoolCode.InitializeArena(objLocationArena, mainProgramMemory->permanentStorageSize, (u8*)mainProgramMemory->permanentStorage);
+    memoryPoolCode.InitializeArena(tempArena, mainProgramMemory->permanentStorageSize, (u8*)mainProgramMemory->permanentStorage);
 #endif    
 
+    thread_context blankThread = {};
+    debug_read_file_result fileResult = DEBUGPlatformReadEntireFile(&blankThread, fileLocation);
+
+    char* charFileResults = (char*)fileResult.contents;
+    
     obj tester = {};
     
-    result = (obj*)memoryPoolCode.PushStruct(objLocationArena, sizeof(tester));
+    result = (obj*)memoryPoolCode->PushStruct(staticArena, sizeof(tester));
     
     char* parsee = charFileResults;
 
@@ -306,10 +313,10 @@ obj* ParseOBJData(char* fileLocation, memory_arena* objLocationArena, program_me
 
 
 
-    result->vertices = (r32*)memoryPoolCode.PushArraySized(objLocationArena, (sizeof(r32) * result->vertexCount) * 3);
-    result->vertexNormals = (r32*)memoryPoolCode.PushArraySized(objLocationArena, (sizeof(r32) * result->vertexNormalCount) * 3);
-    result->vertexTextureCoordinates = (r32*)memoryPoolCode.PushArraySized(objLocationArena, (sizeof(r32) * result->vertexTextureCoordCount) * 2);
-    result->face = (i32*)memoryPoolCode.PushArraySized(objLocationArena, (sizeof(i32) * result->faceCount) * 3);    
+    result->vertices = (r32*)memoryPoolCode->PushArraySized(tempArena, (sizeof(r32) * result->vertexCount) * 3);
+    result->vertexNormals = (r32*)memoryPoolCode->PushArraySized(tempArena, (sizeof(r32) * result->vertexNormalCount) * 3);
+    result->vertexTextureCoordinates = (r32*)memoryPoolCode->PushArraySized(tempArena, (sizeof(r32) * result->vertexTextureCoordCount) * 2);
+    result->face = (i32*)memoryPoolCode->PushArraySized(tempArena, (sizeof(i32) * result->faceCount) * 3);    
 
     bool32 faceMemoryInitialized = false;
     while (parsee[i] != NULL)
@@ -339,7 +346,7 @@ obj* ParseOBJData(char* fileLocation, memory_arena* objLocationArena, program_me
 
 	    i32 rowDataLen = j - i;
 	    
-	    char* rowData = (char*)memoryPoolCode.PushArray(&objArena, rowDataLen, parsee);
+	    char* rowData = (char*)memoryPoolCode->PushArray(tempArena, rowDataLen, parsee);
 
 	    for (i32 k = i + 1, f = 0; k < j; k++, f++)
 	    {
@@ -358,14 +365,14 @@ obj* ParseOBJData(char* fileLocation, memory_arena* objLocationArena, program_me
 	    {
 		if (!faceMemoryInitialized)
 		{
-		    result->vertexIndices = (u16*)memoryPoolCode.PushArraySized(objLocationArena,
+		    result->vertexIndices = (u16*)memoryPoolCode->PushArraySized(tempArena,
 										(sizeof(i32) * result->faceCount)
 										* itemsPerRow);
-		    result->vertexNormalIndices = (u16*)memoryPoolCode.PushArraySized(objLocationArena,
+		    result->vertexNormalIndices = (u16*)memoryPoolCode->PushArraySized(tempArena,
 										      (sizeof(i32) *
 										       result->faceCount) *
 										      itemsPerRow);
-		    result->vertexTextureCoordIndices = (u16*)memoryPoolCode.PushArraySized(objLocationArena,
+		    result->vertexTextureCoordIndices = (u16*)memoryPoolCode->PushArraySized(tempArena,
 											    (sizeof(i32) *
 											    result->faceCount) *
 											    itemsPerRow);
@@ -373,33 +380,37 @@ obj* ParseOBJData(char* fileLocation, memory_arena* objLocationArena, program_me
 		}
 		
 		ParseFaceValues(rowData,
-				&objArena,
+				tempArena,
 				result,
-				itemsPerRow);
+				itemsPerRow,
+				memoryPoolCode);
 	    } break;
 	    case e_vertex:
 	    {
 		ParseFloatMembers(rowData,
-				  &objArena,
+				  tempArena,
 				  result->vertices,
 				  &result->vertexLastIndex,
-				  itemsPerRow);
+				  itemsPerRow,
+				  memoryPoolCode);
 	    } break;
 	    case e_vertex_normal:
 	    {
 		ParseFloatMembers(rowData,
-				  &objArena,
+				  tempArena,
 				  result->vertexNormals,
 				  &result->vertexNormalLastIndex,
-				  itemsPerRow);
+				  itemsPerRow,
+				  memoryPoolCode);
 	    } break;
 	    case e_vertex_texture_coords:
 	    {
 		ParseFloatMembers(rowData,
-				  &objArena,
+				  tempArena,
 				  result->vertexTextureCoordinates,
 				  &result->vertexTextureCoordLastIndex,
-				  itemsPerRow);
+				  itemsPerRow,
+				  memoryPoolCode);
 	    } break;
 	    default:
 	    {
@@ -409,7 +420,7 @@ obj* ParseOBJData(char* fileLocation, memory_arena* objLocationArena, program_me
 
 	}
 	i++;
-	PoolClear(&objArena);
+	PoolClear(tempArena);
     }
 
     return(result);

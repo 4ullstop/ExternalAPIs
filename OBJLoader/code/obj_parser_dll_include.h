@@ -1,7 +1,7 @@
 #if !defined OBJ_PARSER_DLL_INCLUDE_H
 #include "obj_loader.h"
 
-#define PARSE_OBJ_DATA(name) obj* name(char* fileLocation, memory_arena* objLocationArena, program_memory* mainProgramMemory)
+#define PARSE_OBJ_DATA(name) obj* name(char* fileLocation, memory_arena* tempArena, memory_arena* staticArena, program_memory* mainProgramMemory, memory_pool_dll_code* memoryPoolCode)
 typedef PARSE_OBJ_DATA(parse_obj_data);
 PARSE_OBJ_DATA(ParseOBJDataStub)
 {

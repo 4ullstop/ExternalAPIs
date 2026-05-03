@@ -7,6 +7,6 @@ set commonCompilerFlags=-nologo -Gm- -GR- -EHa- -Oi -WX -W4 -wd4201 -wd4100 -wd4
 
 set commonLinkerFlags= -incremental:no user32.lib gdi32.lib winmm.lib
 
-cl %commonCompilerFlags% ..\code\memory_pools.cpp /LD /link /EXPORT:PushStruct /EXPORT:PushArray /EXPORT:PoolAlloc /EXPORT:ClearArena /EXPORT:PushArraySized /EXPORT:InitializeArena /EXPORT:InitializeArena2 /EXPORT:InitializeListedMemory /EXPORT:AddListedItem /EXPORT:RemoveListedItem
+cl %commonCompilerFlags% ..\code\memory_pools.cpp /LD /link /EXPORT:PushStruct /EXPORT:PushArray /EXPORT:PoolAlloc /EXPORT:ClearArena /EXPORT:PushArraySized /EXPORT:InitializeArena /EXPORT:InitializeArena2 /EXPORT:InitializeListedMemory /EXPORT:AddListedItem /EXPORT:RemoveListedItem /EXPORT:AddToEndOfList /EXPORT:RemoveSpecificNode
 
 popd

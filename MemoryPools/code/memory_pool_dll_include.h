@@ -82,6 +82,15 @@ MEMORY_POOL_ADD_LISTED_ITEM(AddListedItemStub)
 global_variable memory_pool_add_listed_item* AddListedItem_ = AddListedItemStub;
 #define AddListedItem AddListedItem_
 
+#define MEMORY_POOL_ADD_TO_END(name) void name(listed_memory* rec, void* data, size_t dataSize, listed_memory_node** recList)
+typedef MEMORY_POOL_ADD_TO_END(memory_pool_add_to_end);
+MEMORY_POOL_ADD_TO_END(AddToEndStub)
+{
+
+}
+global_variable memory_pool_add_to_end* AddToEnd_ = AddToEndStub;
+#define AddToEnd AddToEnd_
+
 #define MEMORY_POOL_REMOVE_LISTED_ITEM(name) void name(listed_memory* rec, listed_memory_node** recList)
 typedef MEMORY_POOL_REMOVE_LISTED_ITEM(memory_pool_remove_listed_item);
 MEMORY_POOL_REMOVE_LISTED_ITEM(RemoveListedItemStub)
@@ -90,6 +99,15 @@ MEMORY_POOL_REMOVE_LISTED_ITEM(RemoveListedItemStub)
 }
 global_variable memory_pool_remove_listed_item* RemoveListedItem_ = RemoveListedItemStub;
 #define RemoveListedItem RemoveListedItem_
+
+#define MEMORY_POOL_REMOVE_SPECIFIC_NODE(name) void name(listed_memory* rec, listed_memory_node** recList, listed_memory_node* nodeToRemove)
+typedef MEMORY_POOL_REMOVE_SPECIFIC_NODE(memory_pool_remove_specific_node);
+MEMORY_POOL_REMOVE_SPECIFIC_NODE(RemoveSpecificNodeStub)
+{
+
+}
+global_variable memory_pool_remove_specific_node* RemoveSpecificNode_ = RemoveSpecificNodeStub;
+#define RemoveSpecificNode RemoveSpecificNode_
 
 struct memory_pool_dll_code
 {
@@ -103,7 +121,9 @@ struct memory_pool_dll_code
 
     memory_pool_init_listed_memory* InitListedMemory;
     memory_pool_add_listed_item* AddListedItem;
+    memory_pool_add_to_end* AddToEndOfList;
     memory_pool_remove_listed_item* RemoveListedItem;
+    memory_pool_remove_specific_node* RemoveSpecificNode;
 };
 
 #define MEMORY_POOLS_DLL_INCLUDE_H

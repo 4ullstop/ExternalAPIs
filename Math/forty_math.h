@@ -56,6 +56,15 @@ operator/(v2 a, v2 b)
 }
 
 inline v2
+operator/(v2 a, r32 b)
+{
+    v2 result;
+    result.x = a.x / b;
+    result.y = a.y / b;
+    return(result);
+}
+
+inline v2
 operator-(v2 a)
 {
     v2 result;
@@ -132,6 +141,22 @@ Dot(v2 a, v2 b)
     return(result);
 }
 
+inline r32
+Magnitude(v2 a)
+{
+    r32 result = 0.0f;
+    result = (r32)sqrt(pow(a.x, 2) + pow(a.y, 2));
+    return(result);
+}
+
+internal v2
+Normalize(v2 a)
+{
+    v2 result = {};
+    result = a / Magnitude(a);
+    return(result);
+}
+
 /*
 ***********************v3*************************
  */
@@ -150,6 +175,7 @@ struct v3
     inline v3 &operator*=(r32 a);
     inline v3 &operator+=(v3 a);
     inline v3 &operator-=(v3 a);
+    inline v3 &operator/=(r32 a);
 };
 
 inline v3
@@ -207,12 +233,41 @@ operator+(v3 a, v3 b)
 }
 
 inline v3
+operator+(v3 a, r32 b)
+{
+    v3 result = {};
+    result.x = a.x + b;
+    result.y = a.y + b;
+    result.z = a.z + b;
+
+    return(result);
+}
+
+inline v3
+operator+(r32 b, v3 a)
+{
+    v3 result = a + b;
+    return(result);
+}
+
+inline v3
 operator-(v3 a, v3 b)
 {
     v3 result;
     result.x = a.x - b.x;
     result.y = a.y - b.y;
     result.z = a.z - b.z;
+
+    return(result);
+}
+
+inline v3
+operator-(v3 a, r32 b)
+{
+    v3 result;
+    result.x = a.x - b;
+    result.y = a.y - b;
+    result.z = a.z - b;
 
     return(result);
 }
@@ -249,6 +304,13 @@ operator-=(v3 a)
     return(*this);
 }
 
+inline v3 &v3::
+operator/=(r32 a)
+{
+    *this = *this / a;
+    return(*this);
+}
+
 internal r32
 Dot(v3 a, v3 b)
 {
@@ -259,13 +321,29 @@ Dot(v3 a, v3 b)
 }
 
 internal v3
-CrossV3(v3 a, v3 b)
+Cross(v3 a, v3 b)
 {
     r32 x, y, z;
     x = ((a.y) * (b.z)) - ((a.z) * (b.y));
     y = ((a.z) * (b.x)) - ((a.y) * (b.z));
     z = ((a.x)* (b.y)) - ((a.y) * (b.x));
     v3 result = v3{x, y, z};
+    return(result);
+}
+
+inline r32
+Magnitude(v3 a)
+{
+    r32 result = 0.0f;
+    result = (r32)sqrt(pow(a.x, 2) + pow(a.y, 2) + pow(a.z, 2));
+    return(result);
+}
+
+internal v3
+Normalize(v3 a)
+{
+    v3 result = {};
+    result = a / Magnitude(a);
     return(result);
 }
 
@@ -348,6 +426,25 @@ operator+(v4 a, v4 b)
 }
 
 inline v4
+operator+(v4 a, r32 b)
+{
+    v4 result;
+    result.x = a.x + b;
+    result.y = a.y + b;
+    result.z = a.z + b;
+    result.w = a.w + b;
+
+    return(result);
+}
+
+inline v4
+operator+(r32 b, v4 a)
+{
+    v4 result = a + b;
+    return(result);
+}
+
+inline v4
 operator-(v4 a, v4 b)
 {
     v4 result;
@@ -402,7 +499,7 @@ DotV4(v4 a, v4 b)
 }
 
 internal v4
-CrossV4(v4 a, v4 b)
+Cross(v4 a, v4 b)
 {
     r32 x, y, z, w;
     x = ((a.y) * (b.z)) - ((a.z) * (b.y));
@@ -556,8 +653,8 @@ internal v2
 TransformVec(v2 v, m2 m)
 {
     v2 result = {};
-    result.x = Dot(v, m.r1);
-    result.y = Dot(v, m.r2);
+    result.x = v.x * m.r1.x + v.y * m.r2.x;
+    result.y = v.x * m.r2.y + v.y * m.r2.y;
 
     return(result);
 }
@@ -809,9 +906,9 @@ internal v3
 TransformVec(v3 v, m3 m)
 {
     v3 result = {};
-    result.x = Dot(v, m.r1);
-    result.y = Dot(v, m.r2);
-    result.z = Dot(v, m.r3);
+    result.x = Dot(v, column(m, 0));
+    result.y = Dot(v, column(m, 1));
+    result.z = Dot(v, column(m, 2));
 
     return(result);
 }
@@ -865,6 +962,20 @@ struct m4
     inline m4 &operator-=(m4);
 };
 
+internal m3
+FromM4ToM3(m4 m)
+{
+    m3 result = {};
+    for (i32 i = 0; i < 3; i++)
+    {
+	for (i32 j = 0; j < 3; j++)
+	{
+	    result.e[i][j] = m.e[i][j];
+	}
+    }
+    return(result);
+}
+
 inline v4
 column(m4 m, i32 i)
 {
@@ -900,11 +1011,14 @@ operator*(m4 a, m4 b)
 {
     m4 result = {};
     
-    for (i32 i = 0; i < 4; i++)
+    for (i32 row = 0; row < 4; row++)
     {
-	for (i32 j = 0; j < 4; j++)
+	for (i32 col = 0; col < 4; col++)
 	{
-	    result.e[i][j] = DotV4(a.r[i], column(b, j));
+	    result.e[row][col] = (a.e[row][0] * b.e[0][col] +
+				  a.e[row][1] * b.e[1][col] +
+				  a.e[row][2] * b.e[2][col] +
+				  a.e[row][3] * b.e[3][col]);
 	}
     }
 
@@ -958,15 +1072,38 @@ Dot(v4 a, v4 b)
     return(result);
 }
 
+inline r32
+Magnitude(v4 a)
+{
+    r32 result = 0.0f;
+    result = (r32)sqrt(pow(a.x, 2) + pow(a.y, 2) + pow(a.z, 2) + pow(a.w, 2));
+    return(result);
+}
+
+internal v4
+Normalize(v4 a)
+{
+    v4 result = {};
+    result = a / Magnitude(a);
+    return(result);
+}
+
 internal v4
 TransformVec(v4 v, m4 m)
 {
     v4 result = {};
+
+#if 1
+    result.x = Dot(v, column(m, 0));
+    result.y = Dot(v, column(m, 1));
+    result.z = Dot(v, column(m, 2));
+    result.w = Dot(v, column(m, 3));    
+#else
     result.x = Dot(v, m.r1);
     result.y = Dot(v, m.r2);
     result.z = Dot(v, m.r3);
-    result.w = Dot(v, m.r4);
-
+    result.w = Dot(v, m.r4);    
+#endif
     return(result);
 }
 
@@ -1023,21 +1160,25 @@ internal m2
 GetMinorMatrix(i32 matrixStride, v2 currMinor, m2 m)
 {
     m2 result = {};
-    for (i32 i = 0, l = 0; i < matrixStride; i++)
+    i32 skipR, skipC;
+    skipR = (i32)currMinor.y;
+    skipC = (i32)currMinor.x;
+
+    i32 outR = 0;
+    for (i32 i = 0; i < matrixStride; i++)
     {
-	for (i32 j = 0, f = 0; j < matrixStride; j++)
+	if (i == skipR) continue;
+
+	i32 outC = 0;
+	for (i32 j = 0; j < matrixStride; j++)
 	{
-	    if ((i != currMinor.x) && (j != currMinor.y))
-	    {
-		result.e[l][f] = m.e[i][j];
-		if (f < matrixStride - 2)
-		    f++;
-		else
-		    l++;
-	    }
+	    if (j == skipC) continue;
+
+	    result.e[outR][outC] = m.e[i][j];
+	    outC++;
 	}
     }
-
+    outR++;
     return(result);
 }
 
@@ -1045,20 +1186,26 @@ GetMinorMatrix(i32 matrixStride, v2 currMinor, m2 m)
 internal m3
 GetMinorMatrix(i32 matrixStride, v2 currMinor, m4 m)
 {
+    i32 skipR, skipC;
+    skipR = (i32)currMinor.x;
+    skipC = (i32)currMinor.y;
+
     m3 result = {};
-    for (i32 i = 0, l = 0; i < matrixStride; i++)
+    i32 outR = 0;
+    
+    for (i32 i = 0; i < matrixStride; i++)
     {
-	for (i32 j = 0, f = 0; j < matrixStride; j++)
+	if (i == skipR) continue;
+
+	i32 outC = 0;
+	for (i32 j = 0; j < matrixStride; j++)
 	{
-	    if ((i != currMinor.x) && (j != currMinor.y))
-	    {
-		result.e[l][f] = m.e[i][j];
-		if (f < matrixStride - 2)
-		    f++;
-		else
-		    l++;
-	    }
+	    if (j == skipC) continue;
+
+	    result.e[outR][outC] = m.e[i][j];
+	    outC++;
 	}
+	outR++;
     }
     return(result);
 }

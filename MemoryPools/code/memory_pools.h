@@ -23,7 +23,7 @@ struct program_memory
     bool32 isInitialized;
 
     u64 permanentStorageSize;
-    void* permanentStorage;
+    void* permanentStorage; 
 
     u64 transientStorageSize;
     void* transientStorage;
@@ -35,7 +35,9 @@ struct program_memory
 struct listed_memory_node
 {
     listed_memory_node* next;
-
+    listed_memory_node* prev;
+    
+    u8 set;
     //Push a piece of data of a specified size (constant)
     void* data;
 };
@@ -43,7 +45,8 @@ struct listed_memory_node
 struct listed_memory
 {
     size_t dataSize;
-
+    size_t nodeSize;
+    
     i32 numOfItems;
     u32 totalListSize;
     

@@ -63,7 +63,7 @@ void PoolAlloc(LPVOID lpAddress, DWORD flAllocationType, DWORD flProtect, progra
     memory->totalSize = memory->permanentStorageSize + memory->transientStorageSize;
     size_t size = (size_t)memory->totalSize;
     
-    memory->memoryBlock = VirtualAlloc(lpAddress, size, flAllocationType, flProtect);
+    memory->memoryBlock = VirtualAlloc(lpAddress, size, MEM_RESERVE|MEM_COMMIT, flProtect);
 
     if (memory->memoryBlock)
     {
@@ -108,20 +108,31 @@ void ClearArena(memory_arena* arena)
 //find a way to return just the listed memory nodes as an array, but have the nodes have "allocated" data
 //associated with the returns
 //for the love of god make sure your arenas are working as you think they are, I don't think they are
+#if 0
 void InitializeListedMemory(listed_memory* record, memory_arena* listArena, size_t sizeOfData)
 {
+
     //Push the data here
+
     size_t listSize = listArena->size - sizeof(listed_memory_node);
     u32 listCount = 0;
 
     record->dataSize = sizeOfData;
     size_t singleNodeSize = sizeof(listed_memory_node) + sizeOfData;
+#if 0
     listCount = (u32)(listSize / singleNodeSize);
+#else
+    listCount = (u32)(listArena->size / singleNodeSize);
+#endif    
     record->totalListSize = listCount;
     //Push again according to the size of the data we are inputting
 
 
+#if 0    
     void* pushedSize = PushArraySized(listArena, (singleNodeSize * listCount) - singleNodeSize);
+#else
+    void* pushedSize = PushArraySized(listArena, singleNodeSize * listCount);
+#endif    
     size_t used = 0;
     u8* base = (u8*)pushedSize;
     
@@ -129,31 +140,95 @@ void InitializeListedMemory(listed_memory* record, memory_arena* listArena, size
     {
 	void* nodeSize = base + used;
 	used += sizeof(listed_memory_node);
+	listed_memory_node* current = (listed_memory_node*)nodeSize;
+
+
 	record->nodeArray = (listed_memory_node*)nodeSize;
-	
+
 	void* dataSize = base + used;
 	used += sizeOfData;
 	record->nodeArray->data = dataSize;
+	record->nodeArray->set = 0;
 
 	//Now, is there a way to set the next pointer of the node here?
 	//The next node this current node would point to hasn't been created yet, but can we just cheat it?
 	listed_memory_node* next = (listed_memory_node*)(base + used);
+
+#if 1
 	next->next = record->nodeArray;
+	next->prev = current;
+#endif
+
+
+
+
+    }
+    
+    record->freeNodes = record->nodeArray;
+ 
+}
+
+#else
+void InitializeListedMemory(listed_memory* record, memory_arena* listArena, size_t sizeOfData)
+{
+    size_t alignedDataSize = (sizeOfData + 7) & ~7;
+    size_t singleNodeSize = sizeof(listed_memory_node) + alignedDataSize;
+    size_t available = listArena->size - listArena->used;
+    u32 listCount = (u32)(available / singleNodeSize);
+
+    record->dataSize = sizeOfData;
+    record->totalListSize = listCount;
+    record->numOfItems = 0;
+    record->nodeSize = singleNodeSize;
+
+    u8* base = (u8*)PushArraySized(listArena, singleNodeSize * listCount);
+
+    for (u32 i = 0; i < listCount; i++)
+    {
+        listed_memory_node* node = (listed_memory_node*)(base + (i * singleNodeSize));
+        node->data = (u8*)node + sizeof(listed_memory_node);
+        node->set = 0;
+
+	if (i == 1250)
+	{
+	    i32 foo = 0;
+	}
+	
+        // Link EVERY node's next, except the absolute last one
+        if (i < listCount - 1) {
+            node->next = (listed_memory_node*)(base + ((i + 1) * singleNodeSize));
+        } else {
+            node->next = 0;
+        }
+
+        if (i > 0) {
+            node->prev = (listed_memory_node*)(base + ((i - 1) * singleNodeSize));
+        } else {
+            node->prev = 0;
+        }
     }
 
-    record->freeNodes = record->nodeArray;
+    record->nodeArray = (listed_memory_node*)base;
+    record->freeNodes = (listed_memory_node*)base;
 }
+#endif
 
 void* ListAlloc(listed_memory* rec)
 {
     listed_memory_node* result = 0;
-    rec->numOfItems = rec->numOfItems + 1;
+    rec->numOfItems = rec->numOfItems + 1;    
     if ((rec == 0) || (rec->freeNodes == 0))
     {
 	return(result);
     }
+
+
     result = rec->freeNodes;
     rec->freeNodes = rec->freeNodes->next;
+
+    result->next = 0;    
+    result->prev = 0;
+
     return(result);
 }
 
@@ -168,20 +243,60 @@ void ListFree(listed_memory* rec, void* ptr)
     
     listed_memory_node* freed = (listed_memory_node*)ptr;
     freed->next = rec->freeNodes;
+    freed->prev = 0;
     rec->freeNodes = freed;    
 }
 
 void RemoveListedItem(listed_memory* rec, listed_memory_node** recList)
 {
-    if (recList == 0)
+    if (recList == 0 || *recList == 0)
     {
 	return;
     }
 
     listed_memory_node* temp = *recList;
-    *recList = (*recList)->next;
+    temp->set = 0;
+//    *recList = (*recList)->next;
+    *recList = temp->next;
+
+    if (*recList != 0)
+    {
+	(*recList)->prev = 0;
+    }
 
     ListFree(rec, temp);
+}
+
+void RemoveSpecificNode(listed_memory* rec, listed_memory_node** recList, listed_memory_node* nodeToRemove)
+{
+    if (rec == 0 || recList == 0 || *recList == 0 || nodeToRemove == 0)
+    {
+	return;
+    }
+
+    if (nodeToRemove == *recList)
+    {
+	*recList = nodeToRemove->next;
+	if (*recList != 0)
+	{
+	    (*recList)->prev = 0;
+	}
+    }
+    else
+    {
+	if (nodeToRemove->prev != 0)
+	{
+	    nodeToRemove->prev->next = nodeToRemove->next;
+	}
+
+	if (nodeToRemove->next != 0)
+	{
+	    nodeToRemove->next->prev = nodeToRemove->prev;
+	}
+    }
+
+    nodeToRemove->set = 0;
+    ListFree(rec, nodeToRemove);
 }
 
 void* MemCpy(void* dest, void* src, size_t n)
@@ -198,23 +313,58 @@ void* MemCpy(void* dest, void* src, size_t n)
     return(dest);
 }
 
+//Add to front of list, could prob rename this sometime
 void AddListedItem(listed_memory* rec, void* data, size_t dataSize, listed_memory_node** recList)
 {
     Assert(dataSize == rec->dataSize);
 
     listed_memory_node* newNode = (listed_memory_node*)ListAlloc(rec);
-
+    if (!newNode) return;
+    
     MemCpy(newNode->data, data, dataSize);
 
-    if (recList == 0)
+    if (*recList == NULL)
     {
+	newNode->next = NULL;
+	newNode->prev = NULL;
+	newNode->set = 1;
 	*recList = newNode;
     }
     else
     {
 	newNode->next = *recList;
+	(*recList)->prev = newNode;
+	newNode->prev = NULL;
 	*recList = newNode;
     }
 }
 
+void AddToEndOfList(listed_memory* rec, void* data, size_t dataSize, listed_memory_node** recList)
+{
+    Assert(dataSize == rec->dataSize);
 
+    listed_memory_node* newNode = (listed_memory_node*)ListAlloc(rec);
+    if (!newNode) return;
+    newNode->set = 1;
+    newNode->next = 0;
+    
+    MemCpy(newNode->data, data, dataSize);
+
+    if (*recList == 0)
+    {
+	newNode->prev = 0;
+	*recList = newNode;
+    }
+    else
+    {
+	listed_memory_node* last = *recList;	
+
+	while (last->next != 0)
+	{
+	    last = last->next;
+	}
+
+	last->next = newNode;
+	newNode->prev = last;
+    }
+}
