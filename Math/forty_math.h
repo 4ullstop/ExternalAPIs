@@ -452,7 +452,6 @@ operator-(v4 a, v4 b)
     result.y = a.y - b.y;
     result.z = a.z - b.z;
     result.w = a.w - b.w;
-
     return(result);
 }
 
