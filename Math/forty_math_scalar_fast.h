@@ -1,5 +1,5 @@
 #if !defined FORTY_MATH_SCALAR_FAST
-
+#include <math.h>
 
 global_variable r32 FM_PI = 3.141592654f;
 global_variable r32 FM_2PI = 6.283185307f;
@@ -17,7 +17,7 @@ ScalarSinCos(r32 value)
     else
 	quo = (r32)((i32)(quo - 0.5f));
 
-    r32 y = value = FM_2PI * quo;
+    r32 y = value - FM_2PI * quo;
 
     //map y to [-pi/2,pi/2] w/ sin(y) = sin(value)
     r32 sign;
@@ -50,7 +50,12 @@ ScalarSinCos(r32 value)
 }
 
 
-
+inline bool32
+ScalarNearEqual(r32 s1, r32 s2, r32 epsilon)
+{
+    r32 delta = s1 - s2;
+    return(fabsf(delta) <= epsilon);
+}
 
 #define FORTY_MATH_SCALAR_FAST
 #endif

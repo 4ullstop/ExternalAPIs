@@ -69,6 +69,8 @@ typedef __m128 m128;
 
 
 
+
+
 /*
 ************************V4*************************************
  */
@@ -101,8 +103,8 @@ struct alignas(16) v4u32
 
 
 //infinity
-global_variable v4I FM_INF  = v4I{0x7F80000, 0x7F80000, 0x7F80000, 0x7F80000};
-global_variable v4I FM_QNaN = v4I{0x7FC0000, 0x7FC0000, 0x7FC0000, 0x7FC0000};
+global_variable v4I FM_INF  = v4I{0x7F800000, 0x7F800000, 0x7F800000, 0x7F800000};
+global_variable v4I FM_QNaN = v4I{0x7FC00000, 0x7FC00000, 0x7FC00000, 0x7FC00000};
 
 struct alignas(16) v4
 {
@@ -125,6 +127,10 @@ global_variable v4 FM_IDENTITY_R1 = v4{0.0f, 1.0f, 0.0f, 0.0f};
 global_variable v4 FM_IDENTITY_R2 = v4{0.0f, 0.0f, 1.0f, 0.0f};
 global_variable v4 FM_IDENTITY_R3 = v4{0.0f, 0.0f, 0.0f, 1.0f};
 
+global_variable v4 FM_NEG_IDENTITY_R0 = v4{-1.0f, 0.0f, 0.0f, 0.0f};
+global_variable v4 FM_NEG_IDENTITY_R1 = v4{0.0f, -1.0f, 0.0f, 0.0f};
+global_variable v4 FM_NEG_IDENTITY_R2 = v4{0.0f, 0.0f, -1.0f, 0.0f};
+global_variable v4 FM_NEG_IDENTITY_R3 = v4{0.0f, 0.0f, 0.0f, -1.0f};
 
 global_variable u32 FM_SELECT_0 = 0x00000000;
 global_variable u32 FM_SELECT_1 = 0xFFFFFFFF;
@@ -146,7 +152,11 @@ global_variable v4 FM_NEGATE_X = {1.0f, -1.0f, 1.0f, 1.0f};
 global_variable v4 FM_NEGATE_Z = {1.0f, 1.0f, -1.0f, 1.0f};
 global_variable v4 FM_NEGATE_W = {1.0f, 1.0f, 1.0f, -1.0f};
 
-global_variable v4u32 FM_MASK_3 = {0xFFFFFFFF, 0xFFFFFFFF, 0x00000000, 0x00000000};
+global_variable v4u32 FM_MASK_3 = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x00000000};
+
+global_variable v4I FM_ABS_MASK = {0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF};
+
+r32 ToRad(r32 deg) { return deg * (FM_PI / 180.0f); }
 
 inline v4 FCALL
 SetV4(r32 x, r32 y, r32 z, r32 w)
@@ -267,6 +277,21 @@ operator-=(v4 a)
 {
     *this = *this - a;
     return(*this);
+}
+
+inline v4 FCALL
+ZeroVector()
+{
+#if NO_INTRINSICS
+    v4 result = {0.0f, 0.0f, 0.0f, 0.0f};
+    return(result);
+#elif defined(ARM)
+
+#elif defined(SSE)
+    v4 result = {};
+    result.smv = _mm_setzero_ps();
+    return(result);
+#endif    
 }
 
 inline v4 FCALL
@@ -461,6 +486,62 @@ VecLenV3(v4 a)
 }
 
 inline v4 FCALL
+NegateVector(v4 a)
+{
+#if NO_INTRINSICS
+    v4 result =
+    {
+	-v.e[0],
+	-v.e[1],
+	-v.e[2],
+	-v.e[3],	
+    };
+    return(result);
+#elif defined(ARM)
+    
+#elif defined(SSE)
+    v4 z, result;
+    z.smv = _mm_setzero_ps();
+    result.smv = _mm_sub_ps(z.smv, a.smv);
+    return(result);
+#endif    
+}
+
+inline bool32 FCALL
+Vector3Equal(v4 a, v4 b)
+{
+#if NO_INTRINSICS
+
+    return (((a.e[0] == b.e[0]) && (a.e[1] == b.e[1]) && (a.e[2] == b.e[2]) && (a.e[3] == b.e[3])) != 0);
+    
+#elif defined(ARM)
+
+#elif defined(SSE)
+    v4 temp = {};
+    temp.smv = _mm_cmpeq_ps(a.smv, b.smv);
+    return(((_mm_movemask_ps(temp.smv) & 7) == 7) != 0);
+#endif    
+}
+
+inline bool32 FCALL
+Vector3IsInf(v4 a)
+{
+#if NO_INTRINSICS
+    //requires use of a function in std which I don't wanna use so if you
+    //aren't using intrinsics just deal w/ it
+
+#elif defined(ARM)
+
+#elif defined(SSE)
+    m128 temp = _mm_and_ps(a.smv, FM_ABS_MASK.smv);
+    //Compare to inf
+    temp = _mm_cmpeq_ps(temp, FM_INF.smv);
+    //If x y or z are inf sings are true
+    return((_mm_movemask_ps(temp) & 7) != 0);
+#endif    
+}
+
+inline v4 FCALL
 CrossV3(v4 a, v4 b)
 {
 #if NO_INTRINSICS
@@ -479,9 +560,75 @@ CrossV3(v4 a, v4 b)
 
 #elif defined(SSE)
 
-    
+    v4 result;
+    // y1,z1,x1,w1
+    m128 temp1 = FM_PERMUTE_PS(a.smv, _MM_SHUFFLE(3, 0, 2, 1));
+    // z2,x2,y2,w2
+    m128 temp2 = FM_PERMUTE_PS(b.smv, _MM_SHUFFLE(3, 1, 0, 2));
+    //Perform left operation
+    result.smv = _mm_mul_ps(temp1, temp2);
+    // z1,x1,y1,w1
+    temp1 = FM_PERMUTE_PS(temp1, _MM_SHUFFLE(3, 0, 2, 1));
+    // y2,z2,x2,w2    
+    temp2 = FM_PERMUTE_PS(temp2, _MM_SHUFFLE(3, 1, 0, 2));
+    //Perform right operation
+    result.smv = FM_FNMADD_PS(temp1, temp2, result.smv);
+    result.smv = _mm_and_ps(result.smv, FM_MASK_3.smv);
+    return(result);
     
 #endif    
+}
+
+inline v4 FCALL
+DotV3(v4 a, v4 b)
+{
+#if NO_INTRINSICS
+
+    r32 fVal = a.e[0] * b.e[0] + a.e[1] * b.e[1] + a.e[2] * b.e[2];
+    v4 result = {};
+    result.e[0] =
+	result.e[1] =
+	result.e[2]
+	result.e[3] = fVal;
+    return(result);
+    
+#elif defined(ARM)
+
+#elif defined(SSE)    
+
+#if defined(SSE_4)
+
+    v4 result = {};
+    result.smv = _mm_dp_ps(a, b, 0x7f);
+    return(result);
+    
+#elif defined(SSE_3)
+
+    v4 temp, result;
+    temp.smv = _mm_mul_ps(a.smv, b.smv);
+    temp.smv = _mm_and_ps(temp.smv, FM_MASK_3.smv);
+    temp.smv = _mm_hadd_ps(temp.smv, temp.smv);
+    result.smv = _mm_hadd_ps(temp.smv, temp.smv);
+    return(result);
+    
+#elif defined(SSE_2) || defined(SSE_1)
+    v4 dot, temp, result;
+    dot.smv = _mm_mul_ps(a.smv, b.smv);
+    // x=Dot.vector4_f32[1], y=Dot.vector4_f32[2]
+    temp.smv = FM_PERMUTE_PS(dot.smv, _MM_SHUFFLE(2, 1, 2, 1));
+    // Result.vector4_f32[0] = x+y
+    dot.smv = _mm_add_ss(dot.smv, temp.smv);
+    // x=Dot.vector4_f32[2]
+    temp.smv = FM_PERMUTE_PS(temp.smv, _MM_SHUFFLE(1, 1, 1, 1));
+    // Result.vector4_f32[0] = (x+y)+z
+    dot.smv = _mm_add_ss(dot.smv, temp.smv);
+    //SPLAT x
+    result.smv = FM_PERMUTE_PS(dot.smv, _MM_SHUFFLE(0, 0, 0, 0));
+    return(result);
+#endif    
+    
+#endif    
+    
 }
 
 inline v4 FCALL
@@ -740,10 +887,10 @@ MergeXY(v4 a, v4 b)
 
     v4 result =
     {
-	(r32)u32Result.e[0];
-	(r32)u32Result.e[1];
-	(r32)u32Result.e[2];
-	(r32)u32Result.e[3];	
+	(r32)u32Result.e[0],
+	(r32)u32Result.e[1],
+	(r32)u32Result.e[2],
+	(r32)u32Result.e[3],	
     };
 
     return(result);
@@ -1342,28 +1489,28 @@ Transpose(m4 m)
 
     return(mt);
 
-#elif (ARM)
+#elif defined (ARM)
 
-#elif (SSE)
-    v4 temp1, temp2, temp3, temp4;
-    // x.x,x.y,y.x,y.y    
-    temp1.smv = _mm_shuffle_ps(m.r[0].smv, m.r[1].smv, _MM_SHUFFLE(1, 0, 1, 0));
-    // x.z,x.w,y.z,y.w    
-    temp3.smv = _mm_shuffle_ps(m.r[0].smv, m.r[1].smv, _MM_SHUFFLE(3, 2, 3, 2));
-    // z.x,z.y,w.x,w.y
-    temp2.smv = _mm_shuffle_ps(m.r[2].smv, m.r[3].smv, _MM_SHUFFLE(1, 0, 1, 0));
-    // z.z,z.w,w.z,w.w
-    temp4.smv = _mm_shuffle_ps(m.r[2].smv, m.r[3].smv, _MM_SHUFFLE(3, 2, 3, 2));
+#elif defined (SSE)
+// Interleave the top two rows
+    // temp1 = [m00, m10, m01, m11]
+    __m128 temp1 = _mm_unpacklo_ps(m.r[0].smv, m.r[1].smv);
+    // temp3 = [m02, m12, m03, m13]
+    __m128 temp3 = _mm_unpackhi_ps(m.r[0].smv, m.r[1].smv);
+
+    // Interleave the bottom two rows
+    // temp2 = [m20, m30, m21, m31]
+    __m128 temp2 = _mm_unpacklo_ps(m.r[2].smv, m.r[3].smv);
+    // temp4 = [m22, m32, m23, m33]
+    __m128 temp4 = _mm_unpackhi_ps(m.r[2].smv, m.r[3].smv);
 
     m4 result;
-    // x.x,y.x,z.x,w.x    
-    result.r[0].smv = _mm_shuffle_ps(temp1.smv, temp2.smv, _MM_SHUFFLE(2, 0, 2, 0));
-    // x.y,y.y,z.y,w.y    
-    result.r[1].smv = _mm_shuffle_ps(temp1.smv, temp2.smv, _MM_SHUFFLE(3, 1, 3, 1));
-    // x.z,y.z,z.z,w.z
-    result.r[2].smv = _mm_shuffle_ps(temp3.smv, temp4.smv, _MM_SHUFFLE(2, 0, 2, 0));
-    // x.w,y.w,z.w,w.w
-    result.r[3].smv = _mm_shuffle_ps(temp3.smv, temp4.smv, _MM_SHUFFLE(3, 1, 3, 1));
+    // Combine the blocks into final rows
+    result.r[0].smv = _mm_movelh_ps(temp1, temp2); // m00, m10, m20, m30
+    result.r[1].smv = _mm_movehl_ps(temp2, temp1); // m01, m11, m21, m31
+    result.r[2].smv = _mm_movelh_ps(temp3, temp4); // m02, m12, m22, m32
+    result.r[3].smv = _mm_movehl_ps(temp4, temp3); // m03, m13, m23, m33
+
     return(result);
 #endif    
 }
@@ -1371,14 +1518,108 @@ Transpose(m4 m)
 inline m4 FCALL
 LookToLH(v4 eyePos, v4 eyeDir, v4 upDir)
 {
+    Assert(!Vector3Equal(eyeDir, ZeroVector()));
+    Assert(!Vector3IsInf(eyeDir));
+    Assert(!Vector3Equal(upDir, ZeroVector()));
+    Assert(!Vector3IsInf(upDir));
     
+    v4 r2 = NormalizeV3(eyeDir);
+    v4 r0 = CrossV3(upDir, r2);
+    r0 = NormalizeV3(r0);
+
+    v4 r1 = CrossV3(r2, r0);
+    v4 negEyePos = NegateVector(eyePos);
+
+    v4 d0 = DotV3(r0, negEyePos);
+    v4 d1 = DotV3(r1, negEyePos);
+    v4 d2 = DotV3(r2, negEyePos);
+
+    m4 m = {};
+    m.r[0] = VectorSelect(d0, r0, FM_SELECT1110);
+    m.r[1] = VectorSelect(d1, r1, FM_SELECT1110);
+    m.r[2] = VectorSelect(d2, r2, FM_SELECT1110);
+    m.r[3] = FM_IDENTITY_R3;
+    
+    m = Transpose(m);
+    return(m);
 }
 
 inline m4 FCALL
 LookAtRH(v4 eyePos, v4 focusPos, v4 upDir)
 {
-    v4 eyeDir = focusPos - eyePos;
+    v4 eyeDir = eyePos - focusPos;
     return(LookToLH(eyePos, eyeDir, upDir));
+}
+
+inline m4 FCALL
+PerspectiveFovRH(r32 fovY, r32 aspectR, r32 nearZ, r32 farZ)
+{
+    Assert(nearZ > 0.f && farZ > 0.f);
+    Assert(!ScalarNearEqual(fovY, 0.0f, 0.00001f * 2.0f));
+    Assert(!ScalarNearEqual(aspectR, 0.0f, 0.00001f));
+    Assert(!ScalarNearEqual(farZ, nearZ, 0.00001f));
+
+#if NO_INTRINSICS
+
+
+
+    r32 sinFov, cosFov;
+    v2 sResult = ScalarSinCos(0.5f * fovY);
+    sinFov = sResult.x;
+    cosFov = sResult.y;
+
+    r32 height = cosFov / sinFov;
+    r32 width = height / aspectR;
+    r32 fRange = farZ / (nearZ - farZ);
+
+    m4 m = {};
+
+    m.e[0][0] = width;
+    m.e[0][1] = 0.0f;
+    m.e[0][2] = 0.0f;
+    m.e[0][3] = 0.0f;    
+    
+    m.e[1][0] = 0.0f;
+    m.e[1][1] = height;
+    m.e[1][2] = 0.0f;
+    m.e[1][3] = 0.0f;
+
+    m.e[2][0] = 0.0f;
+    m.e[2][1] = 0.0f;
+    m.e[2][2] = fRange;
+    m.e[2][3] = -1.0f;
+
+    m.e[3][0] = 0.0f;
+    m.e[3][1] = 0.0f;
+    m.e[3][2] = fRange * nearZ;
+    m.e[3][3] = 0.0f;
+
+    return(m);    
+#elif defined(ARM)
+    
+#elif defined(SSE)
+    r32 sinFov, cosFov;
+    v2 sResult = ScalarSinCos(0.5f * fovY);
+    sinFov = sResult.x;
+    cosFov = sResult.y;
+    r32 fRange = farZ / (nearZ - farZ);
+    r32 height = cosFov /sinFov;
+    r32 width = height / aspectR;
+    
+    m4 m = {};
+    m.r[0].smv = _mm_set_ss(width);
+
+    m.r[1].smv = _mm_set_ss(height);
+    m.r[1].smv = _mm_shuffle_ps(m.r[1].smv, m.r[1].smv, _MM_SHUFFLE(1, 1, 0, 1));
+
+    m.r[2].smv = _mm_set_ps(-1.0f, fRange, 0.0f, 0.0f);
+    m.r[3].smv = _mm_set_ps(0.0f, fRange * nearZ, 0.0f, 0.0f);
+    
+    
+    return(m);
+#endif    
+
+    
 }
 
 #define FORTY_MATH_FAST_H
