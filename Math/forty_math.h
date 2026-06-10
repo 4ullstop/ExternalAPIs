@@ -1,4 +1,9 @@
 #if !defined (FORTY_MATH_H)
+#include <math.h>
+/*
+  MAJOR NOTE: USE OF THIS FILE REQUIRES THE "USE_FORTY_MATH_FAST" COMPILER FLAG
+  Code will not compile without it and will cause redefinition issues of v4 type
+ */
 
 struct v2I
 {
@@ -350,6 +355,8 @@ Normalize(v3 a)
 /*
 ********v4********
  */
+
+#if !USE_FORTY_MATH_FAST
 
 struct v4
 {
@@ -934,6 +941,7 @@ Adjoint(r32 m[][4], i32 matrixStride)
  */
 
 
+
 struct m4
 {
     union
@@ -1247,6 +1255,8 @@ Inverse(m4 m)
     result = Adjoint(m) * div;
     return(result);
 }
+
+#endif
 
 #define FORTY_MATH_H
 #endif

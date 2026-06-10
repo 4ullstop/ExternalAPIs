@@ -4,79 +4,54 @@
 
 #include "math.h"
 #include "../../Math/forty_math.h"
+#include "../../Types/game_types.h"
 
-//define types inside of the framework
-
-struct mouse_movements
-{
-    v2 loc;
-};
-
-enum e_mouse_buttons
-{
-    middle_mouse,
-    left_mouse,
-    right_mouse,
-    middle_mouse_up,
-    middle_mouse_down,
-};
-
-struct game_button_state
-{
-    i32 halfTransitionCount;
-    bool32 endedDown;
-    bool32 wasDown;
-    bool32 started;
-    bool32 held;
-    bool32 released;
-
-    i32 heldTime;
-};
-
-struct game_controller_input
-{
-    bool32 isAnalog;
-    bool32 isConnected;
-
-    bool32 started;
-    bool32 inputPreviousFrame;
-    
-    union
-    {
-	game_button_state buttons[8];
-	struct
-	{
-	    game_button_state moveForward;
-	    game_button_state moveBackward;
-	    game_button_state moveRight;
-	    game_button_state moveLeft;
-	    game_button_state moveUp;
-	    game_button_state moveDown;
-	    
-	    game_button_state testKey;
-
-	    game_button_state terminator;
-	};
-    };
-};
-
-struct game_input
-{
-    game_button_state mouseButtons[5];
-    i32 mouseXUnbounded, mouseYUnbounded, mouseZUnbounded;
-
-    i32 mouseXBounded, mouseYBounded, mouseZBounded;
-
-    r32 dTime;
-    game_controller_input controllers[5];
-};
 
 struct dx_camera
 {
     constant_buffer_struct constantBufferData;
+    DirectX::XMVECTOR position;
+    DirectX::XMVECTOR right;
+    DirectX::XMVECTOR worldUp;
+    DirectX::XMVECTOR up;
+    DirectX::XMVECTOR front;
+    r32 yaw, pitch, movementSpeed, turnSpeed;
 
     
-}
+    DirectX::XMVECTOR startEye;
+    DirectX::XMVECTOR startAt;
+    DirectX::XMVECTOR startUp;
+
+    r32 fovY;
+
+    v2 aspect;
+    
+    r32 targetZoom, currZoom, lag, zoomingTo;
+    DirectX::XMMATRIX viewInverted;
+    DirectX::XMVECTOR targetPos;
+    DirectX::XMVECTOR positionTo;
+    
+    DirectX::XMVECTOR targetQRot;
+    DirectX::XMVECTOR qRotationTo;
+    DirectX::XMVECTOR currQRot;
+    
+    DirectX::XMVECTOR viewCenter;
+    DirectX::XMVECTOR eye;
+    DirectX::XMVECTOR upDir;    
+};
+
+struct program_state
+{
+    bool32 running;
+};
+
+struct obj_conversion
+{
+    vertex_position_color* objVerts;
+    u16* indices;
+    u32 objVertsSize;
+    u32 indexCount;
+};
 
 #define WIN32_FRAMEWORK_H
 #endif

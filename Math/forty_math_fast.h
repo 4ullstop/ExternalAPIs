@@ -1,6 +1,14 @@
 #if !defined (FORTY_MATH_FAST_H)
 #include <xmmintrin.h>
 #include "../Types/typedefs.h"
+#include "forty_math.h"
+/*
+  MAJOR NOTE: USE OF THIS FILE REQUIRES THE "USE_FORTY_MATH_FAST" COMPILER FLAG
+  Code will not compile without it and will cause redefinition issues of v4 type  
+ */
+
+
+#if 0
 struct v2
 {
     union
@@ -13,6 +21,7 @@ struct v2
 
     };
 };
+#endif
 
 #include "forty_math_scalar_fast.h"
 //Using __vectorcall to pass the parameters as SIMD registers directly
