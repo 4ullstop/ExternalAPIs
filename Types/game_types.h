@@ -1,4 +1,7 @@
 #if !defined(GAME_TYPES_H)
+#include "typedefs.h"
+#include "../../OBJLoader/code/obj_loader.h"
+#include "../../MemoryPools/code/memory_pool_dll_include.h"
 
 struct mouse_movements
 {
@@ -69,6 +72,31 @@ inline game_controller_input* GetController(game_input* input, u32 controllerInd
     game_controller_input* result = &input->controllers[controllerIndex];
     return(result);
 }
+
+enum spawnable_obj_type : i32
+{
+    sot_cube = 0,
+};
+
+struct spawned_obj_info
+{
+    spawnable_obj_type type;
+    v3 location;
+};
+
+//OBJS loaded in the game that can be spawned
+struct game_loaded_objs
+{
+    obj* staticLoadedObjs;
+    i32 objFileNum;
+    spawnable_obj_type* types;
+    
+    listed_memory* spawnedObjMemory;
+    listed_memory_node* spawnedObjNodes;
+
+    i32 queuedSpawningItems;
+};
+
 
 #define GAME_TYPES_H
 #endif

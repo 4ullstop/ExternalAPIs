@@ -24,13 +24,64 @@ WIN32_INIT_FRAMEWORK(Win32InitFrameworkStub)
 {
     
 }
-global_variable win32_init_framework* Win32InitFramework_ = Win32InitFramework;
-#define Win32InitFramework Win32InitFrameworkStub_
+global_variable win32_init_framework* Win32InitFramework_ = Win32InitFrameworkStub;
+#define Win32InitFramework Win32InitFramework_
 #endif
+
+#define WIN32_LOAD_GAME_CODE(name) win32_game_code name(game_code_path_cluster* cluster, char* updateFuncName, char* initFuncName, memory_pool_dll_code* memoryPoolCode, memory_arena* arena)
+typedef WIN32_LOAD_GAME_CODE(win32_load_game_code);
+WIN32_LOAD_GAME_CODE(Win32LoadGameCodeStub)
+{
+    win32_game_code result = {};
+    return(result);
+}
+global_variable win32_load_game_code* Win32LoadGameCode_ = Win32LoadGameCodeStub;
+#define Win32LoadGameCode Win32LoadGameCode_
+    
+#define WIN32_GET_EXE_FILENAME(name) void name(program_state* state)
+typedef WIN32_GET_EXE_FILENAME(win32_get_exe_filename);
+WIN32_GET_EXE_FILENAME(Win32GetEXEFilenameStub)
+{
+    
+}
+global_variable win32_get_exe_filename* Win32GetEXEFilename_ = Win32GetEXEFilenameStub;
+#define Win32GetEXEFilename Win32GetEXEFilename_
+
+#define WIN32_CHECK_AND_LOAD_GAME_CODE(name) i32 name(game_code_path_cluster* paths, win32_game_code* gameCode, memory_pool_dll_code* memoryPoolCode, memory_arena* arena)
+typedef WIN32_CHECK_AND_LOAD_GAME_CODE(win32_check_and_load_game_code);
+WIN32_CHECK_AND_LOAD_GAME_CODE(Win32CheckAndLoadGameCodeStub)
+{
+    return(0);
+}
+global_variable win32_check_and_load_game_code* Win32CheckAndLoadGameCode_ = Win32CheckAndLoadGameCodeStub;
+#define Win32CheckAndLoadGameCode Win32CheckAndLoadGameCode_
+
+#define WIN32_GAME_CODE_SETUP(name) game_code_path_cluster name(char* layerDll, char* tempDll, char* lockDll, program_state* state)
+typedef WIN32_GAME_CODE_SETUP(win32_game_code_setup);
+WIN32_GAME_CODE_SETUP(Win32GameCodeSetupStub)
+{
+    game_code_path_cluster result = {};
+    return(result);
+}
+global_variable win32_game_code_setup* Win32GameCodeSetup_ = Win32GameCodeSetupStub;
+#define Win32GameCodeSetup Win32GameCodeSetup_
+
+#define WIN32_CREATE_SPAWNABLE_BUFFERS(name) void name(game_loaded_objs* gameObjs, win32_spawnable_objs* win32Objs, memory_arena* objArena, memory_arena* tempArena, memory_pool_dll_code* memoryPoolCode, ID3D11Device* d3dDevice)
+typedef WIN32_CREATE_SPAWNABLE_BUFFERS(win32_create_spawnable_buffers);
+WIN32_CREATE_SPAWNABLE_BUFFERS(Win32CreateSpawnableBuffersStub)
+{
+
+}
+global_variable win32_create_spawnable_buffers* Win32CreateSpawnableBuffers_ = Win32CreateSpawnableBuffersStub;
+#define Win32CreateSpawnableBuffers Win32CreateSpawnableBuffers_
 
 struct win32_framework_dll_code
 {
     win32_process_pending_messages* Win32ProcessPendingMessages;
+    win32_load_game_code* Win32LoadGameCode;
+    win32_game_code_setup* Win32GameCodeSetup;
+    win32_check_and_load_game_code* Win32CheckAndLoadGameCode;
+    win32_create_spawnable_buffers* Win32CreateSpawnableBuffers;
 };
 
 #define WIN32_FRAMEWORK_DLL_INCLUDE_H

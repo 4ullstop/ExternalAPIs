@@ -7,9 +7,11 @@
 #include "../../FileReader/file_reader.cpp"
 #include "D:/ExternalCustomAPIs/OBJLoader/code/obj_parser_dll_include.h"
 
+#if 0
 global_variable program_memory memory;
 global_variable memory_arena tempArena;
 global_variable memory_arena staticArena;
+#endif
 
 global_variable thread_context blankThread;
 
@@ -315,4 +317,210 @@ obj_conversion ConvertGameOBJToDXOBJ(obj* currObj, memory_arena* arena, memory_p
     }
     result.indexCount = currObj->faceLastIndex;
     return(result);
+}
+
+internal FILETIME
+Win32GetLastWriteTime(char* filename)
+{
+    FILETIME lastWriteTime = {};
+    WIN32_FILE_ATTRIBUTE_DATA data;
+    if (GetFileAttributesEx(filename, GetFileExInfoStandard, &data))
+    {
+	lastWriteTime = data.ftLastWriteTime;
+    }
+    return(lastWriteTime);
+}
+
+internal i32
+StringLength(char* string)
+{
+    i32 count = 0;
+    while (*string++)
+    {
+	++count;
+    }
+    return(count);
+}
+
+win32_game_code Win32LoadGameCode(game_code_path_cluster* paths, char* updateFuncName, char* initFuncName, memory_pool_dll_code* memoryPoolCode, memory_arena* arena)
+{
+    win32_game_code result = {};
+    WIN32_FILE_ATTRIBUTE_DATA ignored;
+    DWORD lastError = 0;
+
+    if (!paths->funcNameInit)
+    {
+	paths->updateFuncName = (char*)memoryPoolCode->PushStruct(arena, sizeof(StringLength(updateFuncName)));
+	paths->updateFuncName = updateFuncName;
+
+	paths->initFuncName = (char*)memoryPoolCode->PushStruct(arena, sizeof(StringLength(initFuncName)));
+	paths->initFuncName = initFuncName;
+	paths->funcNameInit = true;
+    }
+    
+    if ((!GetFileAttributesEx(paths->gameCodeLockFullPath, GetFileExInfoStandard, &ignored)) &&
+	(paths->updateFuncName && paths->initFuncName))
+    {
+	result.dllLastWriteTime = Win32GetLastWriteTime(paths->sourceGameCodeDLLFullPath);
+	CopyFile(paths->sourceGameCodeDLLFullPath, paths->tempGameCodeDLLFullPath, FALSE);
+	result.gameCodeDLL = LoadLibrary(paths->tempGameCodeDLLFullPath);
+	if (result.gameCodeDLL)
+	{
+	    result.GameUpdate = (void*)GetProcAddress(result.gameCodeDLL, paths->updateFuncName);
+	    result.GameInitialize = (void*)GetProcAddress(result.gameCodeDLL, paths->initFuncName);
+	    result.isValid = (result.GameUpdate && result.GameInitialize);
+	}
+    }
+
+    if (!result.isValid)
+    {
+	result.GameUpdate = 0;
+	result.GameInitialize = 0;
+    }
+    return(result);
+}
+
+internal void Win32GetEXEFilename(program_state* state)
+{
+    DWORD sizeOfFilename = GetModuleFileName(0, state->exeFilename, sizeof(state->exeFilename));
+    state->onePastExeFilenameSlash = state->exeFilename;
+    for (char* scan = state->exeFilename; *scan; ++scan)
+    {
+	if (*scan == '\\')
+	{
+	    state->onePastExeFilenameSlash = scan + 1;
+	}
+    }
+}
+
+internal void
+CatStrings(size_t sourceACount, char* sourceA,
+	   size_t sourceBCount, char* sourceB,
+	   size_t destCount, char* dest)
+{
+    for (i32 index = 0; index < sourceACount; ++index)
+    {
+	*dest++ = *sourceA++;
+    }
+    for (i32 index = 0; index < sourceBCount; ++index)
+    {
+	*dest++ = *sourceB++;
+    }
+    *dest = 0;
+}
+
+internal void Win32BuildEXEPathFilename(program_state* state, char* filename, i32 destCount, char* dest)
+{
+    CatStrings(state->onePastExeFilenameSlash - state->exeFilename, state->exeFilename,
+	       StringLength(filename), filename,
+	       destCount, dest);
+}
+
+game_code_path_cluster Win32GameCodeSetup(char* layerDll, char* tempDll, char* lockDll, program_state* state)
+{
+    Win32GetEXEFilename(state);
+
+    game_code_path_cluster result = {};
+    
+    Win32BuildEXEPathFilename(state, layerDll, sizeof(result.sourceGameCodeDLLFullPath),
+			      result.sourceGameCodeDLLFullPath);
+    
+    Win32BuildEXEPathFilename(state, tempDll, sizeof(result.tempGameCodeDLLFullPath),
+			      result.tempGameCodeDLLFullPath);
+
+    Win32BuildEXEPathFilename(state, lockDll, sizeof(result.gameCodeLockFullPath),
+			      result.gameCodeLockFullPath);
+
+    return(result);
+}
+
+internal void
+Win32UnloadGameCode(win32_game_code* gameCode)
+{
+    if (gameCode->gameCodeDLL)
+    {
+	FreeLibrary(gameCode->gameCodeDLL);
+	gameCode->gameCodeDLL = 0;
+    }
+    gameCode->isValid = false;
+    gameCode->GameUpdate = 0;
+    gameCode->GameInitialize = 0;
+}
+
+i32 CheckAndLoadGameCode(game_code_path_cluster* paths, win32_game_code* gameCode, memory_pool_dll_code* memoryPoolCode, memory_arena* arena)
+{
+    FILETIME newDLLWriteTime = Win32GetLastWriteTime(paths->sourceGameCodeDLLFullPath);
+    if (CompareFileTime(&newDLLWriteTime, &gameCode->dllLastWriteTime) != 0)
+    {
+	Win32UnloadGameCode(gameCode);
+
+	*gameCode = Win32LoadGameCode(paths, nullptr, nullptr, memoryPoolCode, arena);
+    }
+    //Function returns the load counter
+    return(0);
+}
+
+internal draw_buffers
+CreateBuffersFromOBJ(obj* objToInit, memory_arena* tempArena, ID3D11Device* d3dDevice, memory_pool_dll_code* memoryPoolCode)
+{
+    HRESULT hr = {};
+    draw_buffers result = {};
+
+    obj_conversion convertedObj = convertedObj = ConvertGameOBJToDXOBJ(objToInit, tempArena, memoryPoolCode);
+
+    D3D11_BUFFER_DESC vertexDesc;
+    vertexDesc.Usage = D3D11_USAGE_DEFAULT;
+    vertexDesc.ByteWidth = convertedObj.objVertsSize;
+    vertexDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+    vertexDesc.CPUAccessFlags = 0;
+    vertexDesc.MiscFlags = 0;
+
+    D3D11_SUBRESOURCE_DATA vertexData;
+    ZeroMemory(&vertexData, sizeof(D3D11_SUBRESOURCE_DATA));
+    vertexData.pSysMem = convertedObj.objVerts;
+    vertexData.SysMemPitch = 0;
+    vertexData.SysMemSlicePitch = 0;
+    
+    hr = d3dDevice->CreateBuffer(
+	&vertexDesc,
+	&vertexData,
+	&result.vertexBuffer);
+
+    CD3D11_BUFFER_DESC indexDesc(
+	sizeof(u16) * convertedObj.indexCount,
+	D3D11_BIND_INDEX_BUFFER);
+
+    D3D11_SUBRESOURCE_DATA indexData;
+    ZeroMemory(&indexData, sizeof(D3D11_SUBRESOURCE_DATA));
+    indexData.pSysMem = convertedObj.indices;
+    indexData.SysMemPitch = 0;
+    indexData.SysMemSlicePitch = 0;
+
+    hr = d3dDevice->CreateBuffer(
+	&indexDesc,
+	&indexData,
+	&result.indexBuffer);
+
+    result.indexCount = convertedObj.indexCount;
+    return(result);
+}
+
+void Win32CreateSpawnableBuffers(game_loaded_objs* gameObjs, win32_spawnable_objs* win32Objs, memory_arena* objArena, memory_arena* tempArena, memory_pool_dll_code* memoryPoolCode, ID3D11Device* d3dDevice)
+{
+    win32Objs->objDrawnBuffers =
+	(draw_buffers*)memoryPoolCode->PushArraySized(objArena, (sizeof(draw_buffers)
+								* gameObjs->spawnedObjMemory->numOfItems));
+
+    obj* objsToSpawn = gameObjs->staticLoadedObjs;
+    draw_buffers* win32DrawnBuffers = win32Objs->objDrawnBuffers;
+
+    for (i32 i = 0; i < gameObjs->objFileNum; i++)
+    {
+	Assert(win32DrawnBuffers);
+	Assert(objsToSpawn);
+
+	*(win32DrawnBuffers) = CreateBuffersFromOBJ(gameObjs->staticLoadedObjs, tempArena, d3dDevice, memoryPoolCode);
+	win32DrawnBuffers++;
+	objsToSpawn++;
+    }
 }

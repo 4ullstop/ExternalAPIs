@@ -40,9 +40,14 @@ struct dx_camera
     DirectX::XMVECTOR upDir;    
 };
 
+#define WIN32_STATE_FILE_NAME_COUNT MAX_PATH
+
 struct program_state
 {
     bool32 running;
+
+    char exeFilename[WIN32_STATE_FILE_NAME_COUNT];
+    char* onePastExeFilenameSlash;
 };
 
 struct obj_conversion
@@ -51,6 +56,44 @@ struct obj_conversion
     u16* indices;
     u32 objVertsSize;
     u32 indexCount;
+};
+
+struct win32_game_code
+{
+    HMODULE gameCodeDLL;
+    FILETIME dllLastWriteTime;
+
+    //Defining in vague terms, to be cast
+    //according to the game code created by the user
+    //in the game layer
+    void* GameUpdate;
+    void* GameInitialize;
+    
+    bool32 isValid;
+};
+
+struct game_code_path_cluster
+{
+    char sourceGameCodeDLLFullPath[WIN32_STATE_FILE_NAME_COUNT];
+    char tempGameCodeDLLFullPath[WIN32_STATE_FILE_NAME_COUNT];
+    char gameCodeLockFullPath[WIN32_STATE_FILE_NAME_COUNT];
+
+    char* updateFuncName;
+    char* initFuncName;
+
+    bool32 funcNameInit;
+};
+
+struct draw_buffers
+{
+    ID3D11Buffer* indexBuffer;
+    ID3D11Buffer* vertexBuffer;
+    i32 indexCount;
+};
+
+struct win32_spawnable_objs
+{
+    draw_buffers* objDrawnBuffers;
 };
 
 #define WIN32_FRAMEWORK_H

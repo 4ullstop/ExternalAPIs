@@ -266,6 +266,12 @@ operator*(v4 a, v4 b)
 #endif            
 }
 
+inline v4 FCALL
+operator*(v4 a, r32 s)
+{
+    v4 temp = {s, s, s, s};
+    return(a * temp);
+}
 
 inline v4 &v4::
 operator*=(v4 a)
@@ -948,7 +954,7 @@ MergeZW(v4 a, v4 b)
 ****************************M4*******************************
  */
 
-struct m4
+struct alignas(16) m4
 {
     union
     {

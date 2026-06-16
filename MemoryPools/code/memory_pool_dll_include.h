@@ -1,6 +1,10 @@
 #if !defined MEMORY_POOLS_DLL_INCLUDE_H
 #include "memory_pools.h"
 
+#if !defined ALLOW_WIN32
+#define ALLOW_WIN32 1
+#endif
+
 #define MEMORY_POOL_PUSH_STRUCT(name) void* name(memory_arena* arena, memory_index size)
 typedef MEMORY_POOL_PUSH_STRUCT(memory_pool_push_struct);
 MEMORY_POOL_PUSH_STRUCT(MemoryPoolPushStructStub)
@@ -19,6 +23,24 @@ MEMORY_POOL_PUSH_ARRAY(MemoryPoolPushArrayStub)
 global_variable memory_pool_push_array* MemoryPoolPushArray_ = MemoryPoolPushArrayStub;
 #define MemoryPoolPushArray MemoryPoolPushArray_
 
+/*
+  This is kinda a poor work around for the time being
+  It would be nice to find a good way to avoid using a windows specific alloc for page allocations
+  Or find a good way to interchange them, (preferably better than the idea I currently have
+  which would make use of void* types which are casted .......)
+
+  But for now I'm just gonna define a macro as a compiler flag if I don't want to use Win32 specific code
+  bc it's only used for this allocation which is something that is done at the beginning of the program
+  likely only ever once
+
+  To allow for backwards compatability, if the compiler flag does not exist, I create it and allow it to exist
+  bc the code from the past worked completely fine (I say without having tested compilation...)
+
+  Tanks for coming to my ted talk
+ */
+#if ALLOW_WIN32
+
+//Real type
 #define MEMORY_POOL_ALLOC(name) void name(LPVOID lpAddress, DWORD flAllocationType, DWORD flProtect, program_memory* memory)
 typedef MEMORY_POOL_ALLOC(memory_pool_alloc);
 MEMORY_POOL_ALLOC(PoolAllocStub)
@@ -27,6 +49,19 @@ MEMORY_POOL_ALLOC(PoolAllocStub)
 }
 global_variable memory_pool_alloc* PoolAlloc_ = PoolAllocStub;
 #define PoolAlloc PoolAlloc_
+
+#else
+//DUMMY HEAD
+#define MEMORY_POOL_ALLOC(name) void name(void)
+typedef MEMORY_POOL_ALLOC(memory_pool_alloc);
+MEMORY_POOL_ALLOC(PoolAllocStub)
+{
+
+}
+global_variable memory_pool_alloc* PoolAlloc_ = PoolAllocStub;
+
+#endif
+
 
 #define MEMORY_POOL_INITIALIZE_ARENA(name) void name(memory_arena* arena, memory_index size, program_memory* memory, e_arena_type arenaType)
 typedef MEMORY_POOL_INITIALIZE_ARENA(memory_pool_initialize_arena);
