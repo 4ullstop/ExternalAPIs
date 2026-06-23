@@ -75,6 +75,25 @@ WIN32_CREATE_SPAWNABLE_BUFFERS(Win32CreateSpawnableBuffersStub)
 global_variable win32_create_spawnable_buffers* Win32CreateSpawnableBuffers_ = Win32CreateSpawnableBuffersStub;
 #define Win32CreateSpawnableBuffers Win32CreateSpawnableBuffers_
 
+#define WIN32_FROM_V4_TO_XMVECTOR(name) DirectX::XMVECTOR name(v4 v)
+typedef WIN32_FROM_V4_TO_XMVECTOR(win32_from_v4_to_xmvector);
+WIN32_FROM_V4_TO_XMVECTOR(Win32FromV4ToXMVECTORStub)
+{
+    DirectX::XMVECTOR result = {};
+    return(result);
+}
+global_variable win32_from_v4_to_xmvector* Win32FromV4ToXMVECTOR_ = Win32FromV4ToXMVECTORStub;
+#define Win32FromV4ToXMVECTOR Win32FromV4ToXMVector_
+
+#define WIN32_CONVERT_GAME_CAMERA_TO_WIN32(name) void name(dx_camera* dxCam, game_camera_data* gCamData)
+typedef WIN32_CONVERT_GAME_CAMERA_TO_WIN32(win32_convert_game_camera_to_win32);
+WIN32_CONVERT_GAME_CAMERA_TO_WIN32(Win32ConvertGameCameraToWin32Stub)
+{
+
+}
+global_variable win32_convert_game_camera_to_win32* Win32ConvertGameCameraToWin32_ = Win32ConvertGameCameraToWin32Stub;
+#define Win32ConvertGameCameraToWin32 Win32ConvertGameCameraToWin32_
+
 struct win32_framework_dll_code
 {
     win32_process_pending_messages* Win32ProcessPendingMessages;
@@ -82,6 +101,8 @@ struct win32_framework_dll_code
     win32_game_code_setup* Win32GameCodeSetup;
     win32_check_and_load_game_code* Win32CheckAndLoadGameCode;
     win32_create_spawnable_buffers* Win32CreateSpawnableBuffers;
+    win32_from_v4_to_xmvector* Win32FromV4ToXMVECTOR;
+    win32_convert_game_camera_to_win32* Win32ConvertGameCameraToWin32;
 };
 
 #define WIN32_FRAMEWORK_DLL_INCLUDE_H

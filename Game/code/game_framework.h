@@ -28,10 +28,24 @@ struct alignas(16) game_camera
 
     v4 worldUp;
 
+    v4 eye;
+    v4 targetPos;
+
+
+    v4 targetQRot;
+
+    v4 positionTo;
+
+    v4 qRotationTo;
+    v4 currQRot;
+    
+    v4 viewCenter;
+    
     r32 pitch, yaw;
     r32 xChange, yChange;
     r32 fovY, movementSpeed;
-
+    r32 targetZoom, currZoom;
+    r32 zoomTo;
 };
 
 //A struct that needs to be filled out by the user

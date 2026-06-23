@@ -143,6 +143,8 @@ void Win32ProcessPendingMessages(game_controller_input* keyboardController, game
 
 	} break;
 	case WM_QUIT:
+	case WM_CLOSE:
+	case WM_DESTROY:
 	{
 	    programState->running = false;
 	} break;
@@ -214,7 +216,6 @@ void Win32ProcessPendingMessages(game_controller_input* keyboardController, game
 	    GetRawInputData((HRAWINPUT)msg.lParam, RID_INPUT, NULL, &dwSize, sizeof(RAWINPUTHEADER));
 	    LPBYTE lpb = (LPBYTE)memoryPoolCode->PushStruct(perFrameArena, (sizeof(BYTE)) * dwSize);
 	    GetRawInputData((HRAWINPUT)msg.lParam, RID_INPUT, lpb, &dwSize, sizeof(RAWINPUTHEADER));
-
 	    RAWINPUT* raw = (RAWINPUT*)lpb;
 
 	    if (raw->header.dwType == RIM_TYPEMOUSE)
@@ -523,4 +524,35 @@ void Win32CreateSpawnableBuffers(game_loaded_objs* gameObjs, win32_spawnable_obj
 	win32DrawnBuffers++;
 	objsToSpawn++;
     }
+}
+
+DirectX::XMVECTOR FromV4ToXMVECTOR(v4 v)
+{
+    DirectX::XMVECTOR result = DirectX::XMVectorSet(v.x, v.y, v.z, v.w);
+    return(result);
+}
+
+DirectX::XMMATRIX FromM4ToXMMATRIX(m4 m)
+{
+    DirectX::XMMATRIX result = {};
+
+    //try to see if you can use intrinsics here!!
+    result.r[0] = FromV4ToXMVECTOR(m.r[0]);
+    result.r[1] = FromV4ToXMVECTOR(m.r[1]);
+    result.r[2] = FromV4ToXMVECTOR(m.r[2]);
+    result.r[3] = FromV4ToXMVECTOR(m.r[3]);
+
+    return(result);
+} 
+
+void ConvertGameCameraDataToWin32(dx_camera* dxCam, game_camera_data* gCamData)
+{
+    DirectX::XMStoreFloat4x4(&dxCam->constantBufferData.world,
+			     FromM4ToXMMATRIX(gCamData->world));
+
+    DirectX::XMStoreFloat4x4(&dxCam->constantBufferData.view,
+			     FromM4ToXMMATRIX(gCamData->view));
+
+    DirectX::XMStoreFloat4x4(&dxCam->constantBufferData.projection,
+			     FromM4ToXMMATRIX(gCamData->projection));
 }

@@ -7,6 +7,6 @@ set commonCompilerFlags=-nologo -Gm- -GR- -EHa- -Oi -WX -W4 -wd4201 -wd4100 -wd4
 
 set commonLinkerFlags=-incremental:no user32.lib gdi32.lib winmm.lib d3d11.lib dxgi.lib
 
-cl %commonCompilerFlags% ..\code\win32_framework.cpp /LD /link %commonLinkerFlags% /EXPORT:Win32ProcessPendingMessages /EXPORT:Win32LoadGameCode /EXPORT:CheckAndLoadGameCode /EXPORT:Win32GameCodeSetup /EXPORT:Win32CreateSpawnableBuffers
+cl %commonCompilerFlags% ..\code\win32_framework.cpp /LD /link %commonLinkerFlags% /EXPORT:Win32ProcessPendingMessages /EXPORT:Win32LoadGameCode /EXPORT:CheckAndLoadGameCode /EXPORT:Win32GameCodeSetup /EXPORT:Win32CreateSpawnableBuffers /EXPORT:FromV4ToXMVECTOR /EXPORT:ConvertGameCameraDataToWin32
 
 popd

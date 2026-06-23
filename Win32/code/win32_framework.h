@@ -1,10 +1,13 @@
 #if !defined WIN32_FRAMEWORK_H
+
 #include "../../Types/typedefs.h"
 #include "../../Types/direct_x_typedefs.h"
+
 
 #include "math.h"
 #include "../../Math/forty_math.h"
 #include "../../Types/game_types.h"
+
 
 
 struct dx_camera
@@ -38,6 +41,13 @@ struct dx_camera
     DirectX::XMVECTOR viewCenter;
     DirectX::XMVECTOR eye;
     DirectX::XMVECTOR upDir;    
+};
+
+struct game_camera_data
+{
+    m4 world;
+    m4 view;
+    m4 projection;
 };
 
 #define WIN32_STATE_FILE_NAME_COUNT MAX_PATH

@@ -165,6 +165,23 @@ global_variable v4u32 FM_MASK_3 = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x0000000
 
 global_variable v4I FM_ABS_MASK = {0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF};
 
+global_variable v4 FM_ZERO = {0.0f, 0.0f, 0.0f, 0.0f};
+global_variable v4 FM_ONE = {1.0f, 1.0f, 1.0f, 1.0f};
+
+global_variable v4 FM_RECIPROCAL_TWO_PI = {FM_1DIV2PI, FM_1DIV2PI, FM_1DIV2PI, FM_1DIV2PI};
+global_variable v4 FM_NO_FRACTION = {8388608.0f, 8388608.0f, 8388608.0f, 8388608.0f};
+global_variable v4u32 FM_NEGATIVE_ZERO = {0x80000000, 0x80000000, 0x80000000, 0x80000000};
+global_variable v4 FM_NEGATIVE_ONE = {-1.0f, -1.0f, -1.0f, -1.0f};
+
+global_variable v4 FM_PI_V = {FM_PI, FM_PI, FM_PI, FM_PI};
+global_variable v4 FM_TWO_PI = {FM_2PI, FM_2PI, FM_2PI, FM_2PI};
+
+global_variable v4 FM_SIN_COEFFICIENTS_0 = {-0.16666667f, +0.0083333310f, -0.00019840874f, +2.7525562e-06f};
+global_variable v4 FM_SIN_COEFFICIENTS_1 ={-2.3889859e-08f, -0.16665852f /*Est1*/, +0.0083139502f /*Est2*/, -0.00018524670f /*Est3*/};
+
+global_variable v4 FM_COS_COEFFICIENTS_0 = {-0.5f, +0.041666638f, -0.0013888378f, +2.4760495e-05f};
+global_variable v4 FM_COS_COEFFICIENTS_1 = {-2.6051615e-07f, -0.49992746f /*Est1*/, +0.041493919f /*Est2*/, -0.0012712436f /*Est3*/ };
+
 r32 ToRad(r32 deg) { return deg * (FM_PI / 180.0f); }
 
 inline v4 FCALL
@@ -498,6 +515,34 @@ inline v4 FCALL
 VecLenV3(v4 a)
 {
 
+}
+
+inline v4 FCALL
+VecLenV4(v4 v)
+{
+#if NO_INTRINSICS
+
+#elif defined(ARM)
+
+#elif defined(SSE)
+    m128 lenSq = _mm_mul_ps(v.smv, v.smv);
+    //temp has z and w
+    m128 temp = FM_PERMUTE_PS(lenSq, _MM_SHUFFLE(3, 2, 3, 2));
+    //x+z y+w
+    lenSq = _mm_add_ps(lenSq, temp);
+    //x+z x+z x+z y+w
+    lenSq = FM_PERMUTE_PS(lenSq, _MM_SHUFFLE(1, 0, 0, 0));
+    //??, ??, y+w y+w
+    temp = _mm_shuffle_ps(temp, lenSq, _MM_SHUFFLE(3, 3, 0, 0));
+    //??, ??, x_z y_w, ??
+    lenSq = _mm_add_ps(lenSq, temp);
+    lenSq = FM_PERMUTE_PS(lenSq, _MM_SHUFFLE(2, 2, 2, 2));
+    lenSq = _mm_sqrt_ps(lenSq);
+
+    v4 result = {};
+    result.smv = lenSq;
+    return(result);
+#endif    
 }
 
 inline v4 FCALL
@@ -950,6 +995,130 @@ MergeZW(v4 a, v4 b)
 #endif
 }
 
+inline v4 FCALL VectorRound(v4 v)
+{
+#if NO_INTRINSICS
+    
+#elif defined(ARM)
+
+#elif defined(SSE)
+    m128 sign = _mm_and_ps(v.smv, FM_NEGATIVE_ZERO.smv);
+    m128 sMagic = _mm_or_ps(FM_NO_FRACTION.smv, sign);
+    m128 r1 = _mm_and_ps(v.smv, sMagic);
+    r1 = _mm_sub_ps(r1, sMagic);
+    m128 r2 = _mm_and_ps(v.smv, FM_ABS_MASK.smv);
+    m128 mask = _mm_cmple_ps(r2, FM_NO_FRACTION.smv);
+    r2 = _mm_andnot_ps(mask, v.smv);
+    r1 = _mm_and_ps(r1, mask);
+    v4 result = {};
+    result.smv = _mm_xor_ps(r1, r2);
+    return(result);
+#endif    
+}
+
+inline v4 FCALL VectorModAngles(v4 angles)
+{
+#if NO_INTRINSICS
+    
+#elif defined(ARM)
+
+#elif defined(SSE)
+    v4 result = {};
+    result.smv = _mm_mul_ps(angles.smv, FM_RECIPROCAL_TWO_PI.smv);
+    result = VectorRound(result);
+    result.smv = FM_FNMADD_PS(result.smv, FM_TWO_PI.smv, angles.smv);
+    return(result);
+#endif    
+}
+
+inline void FCALL VectorSinCos
+(
+    v4* pSin,
+    v4* pCos,
+    v4 v
+ )
+{
+#if NO_INTRINSICS
+    v4 sin =
+    {
+	sinf(v.e[0]),
+	sinf(v.e[1]),
+	sinf(v.e[2]),
+	sinf(v.e[3])
+    };
+
+    v4 cos =
+    {
+	cosf(v.e[0]),
+	cosf(v.e[1]),
+	cosf(v.e[2]),
+	cosf(v.e[3])
+    };
+
+    *pSin = sin;
+    *pCos = cos;
+#elif defined(ARM)
+
+#elif defined(SSE)
+    v4 x = VectorModAngles(v);
+
+    m128 sign = _mm_and_ps(x.smv, FM_NEGATIVE_ZERO.smv);
+    m128 c = _mm_or_ps(FM_PI_V.smv, sign);
+    m128 absx = _mm_andnot_ps(sign, x.smv);
+    m128 rflx = _mm_sub_ps(c, x.smv);
+    m128 comp = _mm_cmple_ps(comp, x.smv);
+    m128 select0 = _mm_and_ps(comp, x.smv);
+    m128 select1 = _mm_andnot_ps(comp, rflx);
+    x.smv = _mm_or_ps(select0, select1);
+    select0 = _mm_and_ps(comp, FM_ONE.smv);
+    select1 = _mm_andnot_ps(comp, FM_NEGATIVE_ONE.smv);
+    sign = _mm_or_ps(select0, select1);
+
+    m128 x2 = _mm_mul_ps(x.smv, x.smv);
+
+    v4 sc1 = FM_SIN_COEFFICIENTS_1;
+    m128 vConstantsB = FM_PERMUTE_PS(sc1.smv, _MM_SHUFFLE(0, 0, 0, 0));
+    v4 sc0 = FM_SIN_COEFFICIENTS_0;
+    m128 vConstants = FM_PERMUTE_PS(sc0.smv, _MM_SHUFFLE(3, 3, 3, 3));
+    m128 result = FM_FMADD_PS(vConstantsB, x2, vConstants);
+
+    vConstants = FM_PERMUTE_PS(sc0.smv, _MM_SHUFFLE(2, 2, 2, 2));
+    result = FM_FMADD_PS(result, x2, vConstants);
+
+    vConstants = FM_PERMUTE_PS(sc0.smv, _MM_SHUFFLE(1, 1, 1, 1));
+    result = FM_FMADD_PS(result, x2, vConstants);
+
+    vConstants = FM_PERMUTE_PS(sc0.smv, _MM_SHUFFLE(0, 0, 0, 0));
+    result = FM_FMADD_PS(result, x2, vConstants);
+
+    result = FM_FMADD_PS(result, x2, FM_ONE.smv);
+    result = _mm_mul_ps(result, x.smv);
+    v4 resV = {};
+    resV.smv = result;
+    *pSin = resV;
+
+    v4 cc1 = FM_COS_COEFFICIENTS_1;
+    vConstantsB = FM_PERMUTE_PS(cc1.smv, _MM_SHUFFLE(0, 0, 0, 0));
+    v4 cc0 = FM_COS_COEFFICIENTS_0;
+    vConstants = FM_PERMUTE_PS(cc0.smv, _MM_SHUFFLE(3, 3, 3, 3));
+    result = FM_FMADD_PS(vConstantsB, x2, vConstants);
+
+    vConstants = FM_PERMUTE_PS(cc0.smv, _MM_SHUFFLE(2, 2, 2, 2));
+    result = FM_FMADD_PS(result, x2, vConstants);
+
+    vConstants = FM_PERMUTE_PS(cc0.smv, _MM_SHUFFLE(1, 1, 1, 1));
+    result = FM_FMADD_PS(result, x2, vConstants);
+
+    vConstants = FM_PERMUTE_PS(cc0.smv, _MM_SHUFFLE(0, 0, 0, 0));
+    result = FM_FMADD_PS(result, x2, vConstants);
+
+    result = FM_FMADD_PS(result, x2, FM_ONE.smv);
+    result = _mm_mul_ps(result, sign);
+
+    resV.smv = result;
+    *pCos = resV;
+#endif    
+}
 /*
 ****************************M4*******************************
  */
@@ -1637,5 +1806,419 @@ PerspectiveFovRH(r32 fovY, r32 aspectR, r32 nearZ, r32 farZ)
     
 }
 
+inline m4 MatrixRotationQuaternion(v4 q)
+{
+
+#if NO_INTRINSICS
+    r32 qx = q.x;
+    r32 qxx = qx * qx;
+
+    r32 qy = q.y;
+    r32 qyy = qy * qy;
+
+    r32 qz = q.z;
+    r32 qzz = qz * qz;
+
+    r32 qw = q.w;
+
+    m4 m = {};
+
+    m.e[0][0] = 1.f - 2.f * qyy - 2.f * qzz;
+    m.e[0][1] = 2.f * qx * qy + 2.f * qz * qw;
+    m.e[0][2] = 2.f * qx * qz - 2.f * qy * qw;
+    m.e[0][3] = 0.f;
+
+    m.e[1][0] = 2.f * qx * qy - 2.f * qz * qw;
+    m.e[1][1] = 1.f - 2.f * qxx - 2.f * qzz;
+    m.e[1][2] = 2.f * qy * qz + 2.f * qx * qw;
+    m.e[1][3] = 0.f;
+
+    m.e[2][0] = 2.f * qx * qz + 2.f * qy * qw;
+    m.e[2][1] = 2.f * qy * qz - 2.f * qx * qw;
+    m.e[2][2] = 1.f - 2.f * qxx - 2.f * qyy;
+    m.e[2][3] = 0.f;
+
+    m.e[3][0] = 0.f;
+    m.e[3][1] = 0.f;
+    m.e[3][2] = 0.f;
+    m.e[3][3] = 1.0f;
+    return(m);
+#elif defined(ARM)
+
+#elif defined(SSE)
+
+    m128 constant1110 = _mm_set_ps(0.0f, 1.0f, 1.0f, 1.0f);
+
+    m128 q0 = _mm_add_ps(q.smv, q.smv);
+    m128 q1 = _mm_mul_ps(q.smv, q0);
+
+    m128 v0 = FM_PERMUTE_PS(q1, _MM_SHUFFLE(3, 0, 0, 1));
+    v0 = _mm_and_ps(v0, FM_MASK_3.smv);
+    m128 v1 = FM_PERMUTE_PS(q1, _MM_SHUFFLE(3, 1, 2, 2));
+    v1 = _mm_and_ps(v1, FM_MASK_3.smv);
+    
+    // This is DirectXMath's "R0" (The diagonal vector)
+    m128 R0 = _mm_sub_ps(constant1110, v0);
+    R0 = _mm_sub_ps(R0, v1);
+
+    v0 = FM_PERMUTE_PS(q.smv, _MM_SHUFFLE(3, 1, 0, 0));
+    v1 = FM_PERMUTE_PS(q0, _MM_SHUFFLE(3, 2, 1, 2));
+    v0 = _mm_mul_ps(v0, v1);
+
+    v1 = FM_PERMUTE_PS(q.smv, _MM_SHUFFLE(3, 3, 3, 3));
+    m128 v2 = FM_PERMUTE_PS(q0, _MM_SHUFFLE(3, 0, 2, 1));
+    v1 = _mm_mul_ps(v1, v2);
+
+    // This produces DirectXMath's "V0" and "V1" vectors
+    m128 V0 = _mm_add_ps(v0, v1);
+    m128 V1 = _mm_sub_ps(v0, v1);
+
+    // --- NOW YOUR DIRECTXMATH BLOCKS WILL WORK PERFECTLY ---
+    m4 m = {};
+
+    // Row 0
+    q1 = _mm_shuffle_ps(R0, V0, _MM_SHUFFLE(1, 0, 3, 0));
+    q1 = FM_PERMUTE_PS(q1, _MM_SHUFFLE(1, 3, 2, 0));
+    m.r[0].smv = q1;
+
+    // Row 1
+    q1 = _mm_shuffle_ps(R0, V0, _MM_SHUFFLE(3, 2, 3, 1));
+    q1 = FM_PERMUTE_PS(q1, _MM_SHUFFLE(1, 3, 0, 2));
+    m.r[1].smv = q1;
+
+    // Row 2 (This matches exactly now because V1 and R0 mean what DirectXMath expects!)
+    q1 = _mm_shuffle_ps(V1, R0, _MM_SHUFFLE(3, 2, 1, 0));
+    m.r[2].smv = q1;
+
+    // Row 3
+    m.r[3] = FM_IDENTITY_R3;
+
+    return m;
+    
+#endif    
+    
+}
+
+inline m4 FCALL
+Inverse(m4 m, v4* pDet)
+{
+#if NO_INTRINSICS
+
+#elif defined(ARM)
+
+#elif defined(SSE)
+    m128 temp1 = _mm_shuffle_ps(m.r[0].smv, m.r[1].smv, _MM_SHUFFLE(1, 0, 1, 0));
+    m128 temp2 = _mm_shuffle_ps(m.r[0].smv, m.r[1].smv, _MM_SHUFFLE(3, 2, 3, 2));
+    m128 temp3 = _mm_shuffle_ps(m.r[2].smv, m.r[3].smv, _MM_SHUFFLE(1, 0, 1, 0));
+    m128 temp4 = _mm_shuffle_ps(m.r[2].smv, m.r[3].smv, _MM_SHUFFLE(3, 2, 3, 2));
+
+    m4 mt = {};
+    mt.r[0].smv = _mm_shuffle_ps(temp1, temp2, _MM_SHUFFLE(2, 0, 2, 0));
+    mt.r[1].smv = _mm_shuffle_ps(temp1, temp2, _MM_SHUFFLE(3, 1, 3, 1));
+    mt.r[2].smv = _mm_shuffle_ps(temp3, temp4, _MM_SHUFFLE(2, 0, 2, 0));
+    mt.r[3].smv = _mm_shuffle_ps(temp3, temp4, _MM_SHUFFLE(3, 1, 3, 1));
+
+    m128 v00 = FM_PERMUTE_PS(mt.r[2].smv, _MM_SHUFFLE(1, 1, 0, 0));
+    m128 v10 = FM_PERMUTE_PS(mt.r[3].smv, _MM_SHUFFLE(3, 2, 3, 2));
+    m128 v01 = FM_PERMUTE_PS(mt.r[0].smv, _MM_SHUFFLE(1, 1, 0, 0));
+    m128 v11 = FM_PERMUTE_PS(mt.r[1].smv, _MM_SHUFFLE(3, 2, 3, 2));
+    m128 v02 = _mm_shuffle_ps(mt.r[2].smv, mt.r[0].smv, _MM_SHUFFLE(2, 0, 2, 0));
+    m128 v12 = _mm_shuffle_ps(mt.r[3].smv, mt.r[1].smv, _MM_SHUFFLE(3, 1, 3, 1));
+
+    m128 d0 = _mm_mul_ps(v00, v10);
+    m128 d1 = _mm_mul_ps(v01, v11);
+    m128 d2 = _mm_mul_ps(v02, v12);
+
+    v00 = FM_PERMUTE_PS(mt.r[2].smv, _MM_SHUFFLE(3, 2, 3, 2));
+    v10 = FM_PERMUTE_PS(mt.r[3].smv, _MM_SHUFFLE(1, 1, 0, 0));
+    v01 = FM_PERMUTE_PS(mt.r[0].smv, _MM_SHUFFLE(3, 2, 3, 2));
+    v11 = FM_PERMUTE_PS(mt.r[1].smv, _MM_SHUFFLE(2, 0, 2, 0));
+    v02 = _mm_shuffle_ps(mt.r[2].smv, mt.r[0].smv, _MM_SHUFFLE(3, 1, 3, 1));
+    v12 = _mm_shuffle_ps(mt.r[3].smv, mt.r[1].smv, _MM_SHUFFLE(2, 0, 2, 0));
+
+    d0 = FM_FNMADD_PS(v00, v10, d0);
+    d1 = FM_FNMADD_PS(v01, v11, d1);
+    d2 = FM_FNMADD_PS(v02, v12, d2);
+
+    //v11 = d0y d0w d2y d2y
+    v11 = _mm_shuffle_ps(d0, d2, _MM_SHUFFLE(1, 1, 3, 1));
+    v00 = FM_PERMUTE_PS(mt.r[1].smv, _MM_SHUFFLE(1, 0, 2, 1));
+    v10 = _mm_shuffle_ps(v11, d0, _MM_SHUFFLE(0, 3, 0, 2));
+    v01 = FM_PERMUTE_PS(mt.r[0].smv, _MM_SHUFFLE(0, 1, 0, 2));
+    v11 = _mm_shuffle_ps(v11, d0, _MM_SHUFFLE(2, 1, 2, 1));
+
+    //v13 = d1y d1w d2w d2w
+    m128 v13 = _mm_shuffle_ps(d1, d2, _MM_SHUFFLE(3, 3, 3, 1));
+    v02 = FM_PERMUTE_PS(mt.r[3].smv, _MM_SHUFFLE(1, 0, 2, 1));
+    v12 = _mm_shuffle_ps(v13, d1, _MM_SHUFFLE(0, 3, 0, 2));
+    m128 v03 = FM_PERMUTE_PS(mt.r[2].smv, _MM_SHUFFLE(0, 1, 0, 2));
+    v13 = _mm_shuffle_ps(v13, d1, _MM_SHUFFLE(2, 1, 2, 1));
+
+    m128 c0 = _mm_mul_ps(v00, v10);
+    m128 c2 = _mm_mul_ps(v01, v11);
+    m128 c4 = _mm_mul_ps(v02, v12);
+    m128 c6 = _mm_mul_ps(v03, v13);
+
+    //v11 =d0x, d0y, d2x, d2x
+    v11 = _mm_shuffle_ps(d0, d2, _MM_SHUFFLE(0, 0, 1, 0));
+    v00 = FM_PERMUTE_PS(mt.r[1].smv, _MM_SHUFFLE(2, 1, 3, 2));
+    v10 = _mm_shuffle_ps(d0, v11, _MM_SHUFFLE(2, 1, 0, 3));
+    v01 = FM_PERMUTE_PS(mt.r[0].smv, _MM_SHUFFLE(1, 3, 2, 3));
+    v11 = _mm_shuffle_ps(d0, v11, _MM_SHUFFLE(0, 2, 1 ,2));
+
+    //v13 d1x d1y d2z d2z
+    v13 = _mm_shuffle_ps(d1, d2, _MM_SHUFFLE(2, 2, 1, 0));
+    v02 = FM_PERMUTE_PS(mt.r[3].smv, _MM_SHUFFLE(2, 1, 3, 2));
+    v12 = _mm_shuffle_ps(d1, v13, _MM_SHUFFLE(2, 1, 0, 3));
+    v03 = FM_PERMUTE_PS(mt.r[2].smv, _MM_SHUFFLE(1, 3, 2, 3));
+    v13 = _mm_shuffle_ps(d1, v13, _MM_SHUFFLE(0, 2, 1, 2));
+
+    c0 = FM_FNMADD_PS(v00, v10, c0);
+    c2 = FM_FNMADD_PS(v01, v11, c2);
+    c4 = FM_FNMADD_PS(v02, v12, c4);
+    c6 = FM_FNMADD_PS(v03, v13, c6);
+
+    v00 = FM_PERMUTE_PS(mt.r[1].smv, _MM_SHUFFLE(0, 3, 0, 3));
+    //v10 = d0z d0z d2x d2y
+    v10 = _mm_shuffle_ps(d0, d2, _MM_SHUFFLE(1, 0, 2, 2));
+    v10 = FM_PERMUTE_PS(v10, _MM_SHUFFLE(0, 2, 3, 0));
+    v01 = FM_PERMUTE_PS(mt.r[0].smv, _MM_SHUFFLE(2, 0, 3, 1));
+    //v11 d0x d0w d2x d2y
+    v11 = _mm_shuffle_ps(d0, d2, _MM_SHUFFLE(1, 0, 3, 0));
+    v11 = FM_PERMUTE_PS(v11, _MM_SHUFFLE(2, 1, 0, 3));
+    v02 = FM_PERMUTE_PS(mt.r[3].smv, _MM_SHUFFLE(0, 3, 0, 3));
+    //v12 = d1z d1z d2z d2w
+    v12 = _mm_shuffle_ps(d1, d2, _MM_SHUFFLE(3, 2, 2, 1));
+    v12 = FM_PERMUTE_PS(v12, _MM_SHUFFLE(0, 2, 3, 0));
+    v03 = FM_PERMUTE_PS(mt.r[2].smv, _MM_SHUFFLE(2, 0, 3, 1));
+    //v13 = d1x d1w d2z d2w
+    v13 = _mm_shuffle_ps(d1, d2, _MM_SHUFFLE(3, 2, 3, 0));
+    v13 = FM_PERMUTE_PS(v13, _MM_SHUFFLE(2, 1, 0 ,3));
+
+    v00 = _mm_mul_ps(v00, v10);
+    v01 = _mm_mul_ps(v01, v11);
+    v02 = _mm_mul_ps(v02, v12);
+    v03 = _mm_mul_ps(v03, v13);
+
+    m128 c1 = _mm_sub_ps(c0, v00);
+    c0 = _mm_add_ps(c0, v00);
+    m128 c3 = _mm_add_ps(c2, v01);
+    c2 = _mm_sub_ps(c2, v01);
+    m128 c5 = _mm_sub_ps(c4, v02);
+    c4 = _mm_add_ps(c4, v02);
+    m128 c7 = _mm_add_ps(c6, v03);
+    c6 = _mm_sub_ps(c6, v03);
+
+    c0 = _mm_shuffle_ps(c0, c1, _MM_SHUFFLE(3, 1, 2, 0));
+    c2 = _mm_shuffle_ps(c2, c3, _MM_SHUFFLE(3, 1, 2, 0));
+    c4 = _mm_shuffle_ps(c4, c5, _MM_SHUFFLE(3, 1, 2, 0));
+    c6 = _mm_shuffle_ps(c6, c7, _MM_SHUFFLE(3, 1, 2, 0));
+    c0 = FM_PERMUTE_PS(c0, _MM_SHUFFLE(3, 2, 1, 0));
+    c2 = FM_PERMUTE_PS(c2, _MM_SHUFFLE(3, 2, 1, 0));
+    c4 = FM_PERMUTE_PS(c4, _MM_SHUFFLE(3, 2, 1, 0));
+    c6 = FM_PERMUTE_PS(c6, _MM_SHUFFLE(3, 2, 1, 0));
+
+    //Get the determinant
+    v4 c0v = {};
+    c0v.smv = c0;
+    v4 temp = DotV4(c0v, mt.r[0]);
+    if (pDet !=  nullptr)
+	*pDet = temp;
+
+    temp.smv = _mm_div_ps(FM_ONE.smv, temp.smv);
+    m4 result = {};
+    result.r[0].smv = _mm_mul_ps(c0, temp.smv);
+    result.r[1].smv = _mm_mul_ps(c2, temp.smv);
+    result.r[2].smv = _mm_mul_ps(c4, temp.smv);
+    result.r[3].smv = _mm_mul_ps(c6, temp.smv);
+    return(result);
+#endif    
+}
+
+/*
+************Quaternions***********
+ */
+
+inline v4 FCALL QuaternionRotationNormal(v4 normalAxis, r32 angle)
+{
+#if NO_INTRINSICS
+    v4 n = VectorSelect(FM_ONE, normalAxis, FM_SELECT1110);
+    r32 sinV, cosV;
+
+    v2 sResult = ScalarSinCos(0.5f * angle);
+    sinV = sResult.x;
+    cosV = sResult.y;
+
+    v4 scale = v4{sinV, sinV, sinV, cosV};
+    return(n * scale);
+#elif defined(ARM)
+
+#elif defined(SSE)
+    m128 n = _mm_and_ps(normalAxis.smv, FM_MASK_3.smv);
+    n = _mm_or_ps(n, FM_IDENTITY_R3.smv);
+    m128 scale = _mm_set_ps1(0.5f * angle);
+    v4 vSine = {};
+    v4 vCosine = {};
+    v4 vScale = {};
+    vScale.smv = scale;
+    VectorSinCos(&vSine, &vCosine, vScale);
+    scale = _mm_and_ps(vSine.smv, FM_MASK_3.smv);
+    vCosine.smv = _mm_and_ps(vCosine.smv, FM_MASK_W.smv);
+    scale = _mm_or_ps(scale, vCosine.smv);
+    n = _mm_mul_ps(n, scale);
+    v4 result = {};
+    result.smv = n;
+    return(result);
+#endif    
+}
+//YOU HAVE NOT CHECKED ANY OF THESE FUNCTIONS ^^^^^^^
+
+inline v4 FCALL QuaternionRotationAxis(v4 axis, r32 angle)
+{
+    Assert(!Vector3Equal(axis, ZeroVector()));
+    Assert(!Vector3IsInf(axis));
+
+    v4 normal = NormalizeV4(axis);
+    v4 q = QuaternionRotationNormal(normal, angle);
+    return(q);
+}
+
+inline v4 FCALL QuaternionNormalize(v4 q)
+{
+    return NormalizeV4(q);
+}
+
+inline v4 FCALL QuaternionRotationMatrix(m4 m)
+{
+#if NO_INTRINSICS
+
+    v4 q = {};
+    r32 r22 = m.e[2][2];
+    if (r22 <= 0.f) //x^2 + y^2 >= z^2 + w^2
+    {
+	r32 dif10 = m.e[1][1] - m.e[0][0];
+	r32 omr22 = 1.f - r22;
+	if (dif10 <= 0.f) //x^2 >= y^2
+	{
+	    r32 fourXSqr = omr22 - dif10;
+	    r32 inv4x = 0.5f / sqrtf(fourXSqr);
+	    q.e[0] = fourXSqr * inv4x;
+	    q.e[1] = (m.e[0][1] + m.e[1][0]) * inv4x;
+	    q.e[2] = (m.e[0][2] + m.e[2][0]) * inv4x;
+	    q.e[3] = (m.e[1][2] - m.e[2][1]) * inv4x;
+
+	}
+	else //y^2 >= x^2
+	{
+	    r32 fourYSqr = omr22 + dif10;
+	    r32 inv4y = 0.5f / sqrtf(fourYSqr);
+	    q.e[0] = (m.e[0][1] + m.e[1][0]) * inv4y;
+	    q.e[1] = fourYSqr * inv4y;
+	    q.e[2] = (m.e[1][2] + m.e[2][1]) * inv4y;
+	    q.e[3] = (m.e[2][0] - m.e[0][2]) * inv4y;
+	}
+    }
+    else //z^2 + w^2 >= x^2 + y^2
+    {
+	r32 sum10 = m.e[1][1] + m.e[0][0];
+	r32 opr22 = 1.f + r22;
+	if (sum10 < 0.f) //z^2 >= w^2
+	{
+	    r32 fourZSqr = opr22 - sum10;
+	    r32 inv4z = 0.5f / sqrtf(fourZSqr);
+	    q.e[0] = (m.e[0][2] + m.e[2][0]) * inv4z;
+	    q.e[1] = (m.e[1][2] + m.e[2][1]) * inv4z;
+	    q.e[2] = fourZSqr * inv4z;
+	    q.e[3] = (m.e[1][0] - m.e[0][1]) * inv4z;
+	}
+	else //w^2 >= z^2
+	{
+	    r32 fourWSqr = opr22 + sum10;
+	    r32 inv4w = 0.5f / sqrtf(fourWSqr);
+	    q.e[0] = (m.e[1][2] - m.e[2][1]) * inv4w;
+	    q.e[1] = (m.e[2][0] - m.e[0][2]) * inv4w;
+	    q.e[2] = (m.e[0][1] - m.e[1][0]) * inv4w;
+	    q.e[3] = fourWSqr * inv4w;
+	}
+    }
+    return(q);
+    
+#elif defined(ARM)
+
+#elif defined(SSE)
+
+// DirectXMath SSE implementation strategy uses sign control arrays to find the trace
+    m128 r0 = m.r[0].smv;
+    m128 r1 = m.r[1].smv;
+    m128 r2 = m.r[2].smv;
+
+    // Standard DirectXMath sign vector templates
+    const m128 jXMPMMP = _mm_set_ps(1.0f, -1.0f, -1.0f, 1.0f);
+    const m128 jXMMPMP = _mm_set_ps(1.0f, -1.0f, 1.0f, -1.0f);
+    const m128 jXMMMPP = _mm_set_ps(1.0f, 1.0f, -1.0f, -1.0f);
+
+    m128 r00 = _mm_shuffle_ps(r0, r0, _MM_SHUFFLE(0, 0, 0, 0));
+    m128 r11 = _mm_shuffle_ps(r1, r1, _MM_SHUFFLE(1, 1, 1, 1));
+    m128 r22 = _mm_shuffle_ps(r2, r2, _MM_SHUFFLE(2, 2, 2, 2));
+
+    m128 r11mr00 = _mm_sub_ps(r11, r00);
+    m128 x2gey2 = _mm_cmple_ps(r11mr00, _mm_setzero_ps());
+    m128 r11pr00 = _mm_add_ps(r11, r00);
+    m128 z2gew2 = _mm_cmple_ps(r11pr00, _mm_setzero_ps());
+    m128 x2py2gez2pw2 = _mm_cmple_ps(r22, _mm_setzero_ps());
+
+    m128 t0 = _mm_add_ps(_mm_mul_ps(jXMPMMP, r00), _mm_set1_ps(1.0f));
+    m128 t1 = _mm_mul_ps(jXMMPMP, r11);
+    m128 t2 = _mm_add_ps(_mm_mul_ps(jXMMMPP, r22), t0);
+    m128 x2y2z2w2 = _mm_add_ps(t1, t2);
+
+    // Reconstruct cross-product terms safely matching DirectXMath unpacking layouts
+    m128 s0 = _mm_shuffle_ps(r0, r1, _MM_SHUFFLE(1, 2, 2, 1));
+    m128 s1 = _mm_shuffle_ps(r1, r2, _MM_SHUFFLE(1, 0, 0, 0));
+    s1 = _mm_shuffle_ps(s1, s1, _MM_SHUFFLE(1, 3, 2, 0));
+    m128 xyxzyz = _mm_add_ps(s0, s1);
+
+    m128 s2 = _mm_shuffle_ps(r0, r1, _MM_SHUFFLE(2, 0, 0, 2));
+    s2 = _mm_shuffle_ps(s2, s2, _MM_SHUFFLE(1, 3, 0, 2));
+    m128 s3 = _mm_shuffle_ps(r2, r2, _MM_SHUFFLE(0, 0, 1, 1));
+    s3 = _mm_shuffle_ps(s3, s3, _MM_SHUFFLE(2, 0, 1, 3));
+    m128 xwywzw = _mm_sub_ps(s2, s3);
+
+    // Build the selection vectors
+    m128 tensor0 = _mm_shuffle_ps(x2y2z2w2, xyxzyz, _MM_SHUFFLE(0, 0, 1, 0));
+    tensor0 = _mm_shuffle_ps(tensor0, xwywzw, _MM_SHUFFLE(0, 1, 2, 0)); // row 0: x dominant
+
+    m128 tensor1 = _mm_shuffle_ps(xyxzyz, x2y2z2w2, _MM_SHUFFLE(1, 1, 0, 0));
+    tensor1 = _mm_shuffle_ps(tensor1, xwywzw, _MM_SHUFFLE(1, 2, 2, 0)); // row 1: y dominant
+
+    m128 tensor2 = _mm_shuffle_ps(xyxzyz, xyxzyz, _MM_SHUFFLE(2, 2, 1, 1));
+    tensor2 = _mm_shuffle_ps(tensor2, x2y2z2w2, _MM_SHUFFLE(2, 2, 0, 1));
+    tensor2 = _mm_shuffle_ps(tensor2, xwywzw, _MM_SHUFFLE(2, 0, 2, 0)); // row 2: z dominant
+
+    m128 tensor3 = _mm_shuffle_ps(xwywzw, xwywzw, _MM_SHUFFLE(1, 2, 0, 0));
+    tensor3 = _mm_shuffle_ps(tensor3, x2y2z2w2, _MM_SHUFFLE(3, 3, 0, 2));
+    tensor3 = _mm_shuffle_ps(tensor3, tensor3, _MM_SHUFFLE(2, 3, 1, 0)); // row 3: w dominant
+
+    // Perform conditional mask selects matching your layout sequence
+    t0 = _mm_or_ps(_mm_and_ps(x2gey2, tensor0), _mm_andnot_ps(x2gey2, tensor1));
+    t1 = _mm_or_ps(_mm_and_ps(z2gew2, tensor2), _mm_andnot_ps(z2gew2, tensor3));
+    t2 = _mm_or_ps(_mm_and_ps(x2py2gez2pw2, t0), _mm_andnot_ps(x2py2gez2pw2, t1));
+
+    // Fix the normalization step: Unpack the primary squared length element 
+    m128 lengthSqr = _mm_shuffle_ps(x2y2z2w2, x2y2z2w2, _MM_SHUFFLE(0, 0, 0, 0));
+    t0 = _mm_or_ps(_mm_and_ps(x2gey2, lengthSqr), _mm_andnot_ps(x2gey2, _mm_shuffle_ps(x2y2z2w2, x2y2z2w2, _MM_SHUFFLE(1, 1, 1, 1))));
+    t1 = _mm_or_ps(_mm_and_ps(z2gew2, _mm_shuffle_ps(x2y2z2w2, x2y2z2w2, _MM_SHUFFLE(2, 2, 2, 2))), _mm_andnot_ps(z2gew2, _mm_shuffle_ps(x2y2z2w2, x2y2z2w2, _MM_SHUFFLE(3, 3, 3, 3))));
+    lengthSqr = _mm_or_ps(_mm_and_ps(x2py2gez2pw2, t0), _mm_andnot_ps(x2py2gez2pw2, t1));
+
+    // Normalize precisely via square root 
+    m128 length = _mm_sqrt_ps(lengthSqr);
+    v4 result;
+    result.smv = _mm_div_ps(t2, length);
+    return(result);
+
+#endif    
+}
+
 #define FORTY_MATH_FAST_H
 #endif
+

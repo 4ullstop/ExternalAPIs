@@ -85,7 +85,7 @@ game_loaded_objs LoadGameOBJFiles(parse_obj_data_code* parseObjCode, framework_a
     return(result);
 }
 
-void SpawnNewOBJ(spawnable_obj_type type, v3 location, game_loaded_objs* loadedObjs, memory_pool_dll_code* memoryPoolCode)
+void SpawnNewOBJ(spawnable_obj_type type, v4 location, game_loaded_objs* loadedObjs, memory_pool_dll_code* memoryPoolCode)
 {
     spawned_obj_info newInfo;
     newInfo.location = location;
@@ -95,4 +95,53 @@ void SpawnNewOBJ(spawnable_obj_type type, v3 location, game_loaded_objs* loadedO
 				  (void*)&newInfo,
 				  sizeof(newInfo),
 				  &loadedObjs->spawnedObjNodes);
+}
+
+void UpdateInternalTransformations(game_camera* camera)
+{
+    m4 rot = MatrixRotationQuaternion(camera->currQRot);
+    m4 trans = TranslationM4(camera->position);
+
+    m4 zoom = TranslationM4(0.0f, 0.0f, camera->currZoom);
+    m4 cameraWorld = zoom * rot * trans;
+
+    v4 det = {};
+    m4 view = Inverse(cameraWorld, &det);
+
+    camera->view = Transpose(cameraWorld);
+    
+}
+
+void InitArcBallCamera(game_camera* camera)
+{
+    camera->eye =  {0.0f, 0.0f, 0.0f, 0.0f};
+    camera->viewCenter = {0.0f, 0.0f, 0.0f, 0.0f};
+    camera->up = {0.0f, 1.0f, 0.0f, 0.0f};
+
+    v4 dir =  camera->viewCenter - camera->eye;
+    v4 zAxis = NormalizeV3(dir);
+    v4 xAxis = NormalizeV3(CrossV3(zAxis,
+				   NormalizeV3(camera->up)));
+    v4 yAxis = NormalizeV3(CrossV3(xAxis, zAxis));
+    xAxis = NormalizeV3(CrossV3(zAxis, yAxis));
+    camera->targetPos = camera->viewCenter;
+    camera->targetZoom = 15.f;
+
+    zAxis = zAxis * -1.0f;
+
+    v4 w = {0.0f, 0.0f, 0.0f, 1.0f};
+    m4 rotMat = {};
+    rotMat.r[0] = xAxis;
+    rotMat.r[1] = yAxis;
+    rotMat.r[2] = zAxis;
+    rotMat.r[3] = w;
+
+    rotMat = Transpose(rotMat);
+    camera->targetQRot = QuaternionNormalize(QuaternionRotationMatrix(rotMat));
+
+    camera->positionTo = camera->position = camera->targetPos;
+    camera->zoomTo = camera->currZoom = camera->targetZoom;
+    camera->qRotationTo = camera->currQRot = camera->targetQRot;
+
+    UpdateInternalTransformations(camera);
 }

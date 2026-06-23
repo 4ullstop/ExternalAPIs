@@ -3,6 +3,7 @@
 #include "../../OBJLoader/code/obj_loader.h"
 #include "../../MemoryPools/code/memory_pool_dll_include.h"
 
+
 struct mouse_movements
 {
     v2 loc;
@@ -75,13 +76,13 @@ inline game_controller_input* GetController(game_input* input, u32 controllerInd
 
 enum spawnable_obj_type : i32
 {
-    sot_cube = 0,
+    sot_ico = 0,
 };
 
 struct spawned_obj_info
 {
     spawnable_obj_type type;
-    v3 location;
+    v4 location;
 };
 
 //OBJS loaded in the game that can be spawned
