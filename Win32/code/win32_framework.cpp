@@ -310,6 +310,7 @@ obj_conversion ConvertGameOBJToDXOBJ(obj* currObj, memory_arena* arena, memory_p
 	result.objVerts[j].pos.z = currObj->vertices[i + 1];
 
 	DirectX::XMFLOAT3 vertColor = {testColors[j].x, testColors[j].y, testColors[j].z};
+//	DirectX::XMFLOAT3 vertColor = {1.0f, 0.0f, 0.0f}; 
 	result.objVerts[j].color = vertColor;
     }
     for (i32 i = 0; i < currObj->faceLastIndex; i++)
@@ -556,3 +557,4 @@ void ConvertGameCameraDataToWin32(dx_camera* dxCam, game_camera_data* gCamData)
     DirectX::XMStoreFloat4x4(&dxCam->constantBufferData.projection,
 			     FromM4ToXMMATRIX(gCamData->projection));
 }
+

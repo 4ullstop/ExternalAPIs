@@ -5,6 +5,8 @@
   Code will not compile without it and will cause redefinition issues of v4 type
  */
 
+
+
 struct v2I
 {
     i32 x, y;

@@ -94,6 +94,16 @@ WIN32_CONVERT_GAME_CAMERA_TO_WIN32(Win32ConvertGameCameraToWin32Stub)
 global_variable win32_convert_game_camera_to_win32* Win32ConvertGameCameraToWin32_ = Win32ConvertGameCameraToWin32Stub;
 #define Win32ConvertGameCameraToWin32 Win32ConvertGameCameraToWin32_
 
+#define WIN32_FROM_M4_TO_XMMATRIX(name) DirectX::XMMATRIX name(m4 m)
+typedef WIN32_FROM_M4_TO_XMMATRIX(win32_from_m4_to_xmmatrix);
+WIN32_FROM_M4_TO_XMMATRIX(Win32FromM4ToXMMATRIXStub)
+{
+    DirectX::XMMATRIX result = {};
+    return(result);
+}
+global_variable win32_from_m4_to_xmmatrix* Win32FromM4ToXMMATRIX_ = Win32FromM4ToXMMATRIXStub;
+#define Win32FromM4ToXMMATRIX Win32FromM4ToXMMATRIX_
+
 struct win32_framework_dll_code
 {
     win32_process_pending_messages* Win32ProcessPendingMessages;
@@ -103,6 +113,7 @@ struct win32_framework_dll_code
     win32_create_spawnable_buffers* Win32CreateSpawnableBuffers;
     win32_from_v4_to_xmvector* Win32FromV4ToXMVECTOR;
     win32_convert_game_camera_to_win32* Win32ConvertGameCameraToWin32;
+    win32_from_m4_to_xmmatrix* Win32FromM4ToXMMATRIX;
 };
 
 #define WIN32_FRAMEWORK_DLL_INCLUDE_H

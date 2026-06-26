@@ -76,13 +76,22 @@ inline game_controller_input* GetController(game_input* input, u32 controllerInd
 
 enum spawnable_obj_type : i32
 {
-    sot_ico = 0,
+//    sot_ico = 0,
+    sot_boat = 0,
+};
+
+struct transform
+{
+    v4 location;
+    v4 rotation;
+    v4 scale;
 };
 
 struct spawned_obj_info
 {
     spawnable_obj_type type;
-    v4 location;
+    transform modelTransform;
+    m4 modelMatrix;
 };
 
 //OBJS loaded in the game that can be spawned
@@ -97,7 +106,6 @@ struct game_loaded_objs
 
     i32 queuedSpawningItems;
 };
-
 
 #define GAME_TYPES_H
 #endif

@@ -85,10 +85,11 @@ game_loaded_objs LoadGameOBJFiles(parse_obj_data_code* parseObjCode, framework_a
     return(result);
 }
 
-void SpawnNewOBJ(spawnable_obj_type type, v4 location, game_loaded_objs* loadedObjs, memory_pool_dll_code* memoryPoolCode)
+void SpawnNewOBJ(spawnable_obj_type type, transform startTrans, game_loaded_objs* loadedObjs, memory_pool_dll_code* memoryPoolCode)
 {
     spawned_obj_info newInfo;
-    newInfo.location = location;
+    newInfo.modelTransform = startTrans;
+    newInfo.modelMatrix = CreateModelMatrix(startTrans.scale, startTrans.rotation, startTrans.location);
     newInfo.type = type;
 
     memoryPoolCode->AddListedItem(loadedObjs->spawnedObjMemory,

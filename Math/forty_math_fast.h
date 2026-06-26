@@ -175,6 +175,8 @@ global_variable v4 FM_NEGATIVE_ONE = {-1.0f, -1.0f, -1.0f, -1.0f};
 
 global_variable v4 FM_PI_V = {FM_PI, FM_PI, FM_PI, FM_PI};
 global_variable v4 FM_TWO_PI = {FM_2PI, FM_2PI, FM_2PI, FM_2PI};
+global_variable v4 FM_HALFPI = {FM_PIDIV2, FM_PIDIV2, FM_PIDIV2, FM_PIDIV2};
+
 
 global_variable v4 FM_SIN_COEFFICIENTS_0 = {-0.16666667f, +0.0083333310f, -0.00019840874f, +2.7525562e-06f};
 global_variable v4 FM_SIN_COEFFICIENTS_1 ={-2.3889859e-08f, -0.16665852f /*Est1*/, +0.0083139502f /*Est2*/, -0.00018524670f /*Est3*/};
@@ -1004,7 +1006,7 @@ inline v4 FCALL VectorRound(v4 v)
 #elif defined(SSE)
     m128 sign = _mm_and_ps(v.smv, FM_NEGATIVE_ZERO.smv);
     m128 sMagic = _mm_or_ps(FM_NO_FRACTION.smv, sign);
-    m128 r1 = _mm_and_ps(v.smv, sMagic);
+    m128 r1 = _mm_add_ps(v.smv, sMagic);
     r1 = _mm_sub_ps(r1, sMagic);
     m128 r2 = _mm_and_ps(v.smv, FM_ABS_MASK.smv);
     m128 mask = _mm_cmple_ps(r2, FM_NO_FRACTION.smv);
@@ -1066,7 +1068,7 @@ inline void FCALL VectorSinCos
     m128 c = _mm_or_ps(FM_PI_V.smv, sign);
     m128 absx = _mm_andnot_ps(sign, x.smv);
     m128 rflx = _mm_sub_ps(c, x.smv);
-    m128 comp = _mm_cmple_ps(comp, x.smv);
+    m128 comp = _mm_cmple_ps(absx, FM_HALFPI.smv);
     m128 select0 = _mm_and_ps(comp, x.smv);
     m128 select1 = _mm_andnot_ps(comp, rflx);
     x.smv = _mm_or_ps(select0, select1);
@@ -1847,8 +1849,8 @@ inline m4 MatrixRotationQuaternion(v4 q)
 
 #elif defined(SSE)
 
-    m128 constant1110 = _mm_set_ps(0.0f, 1.0f, 1.0f, 1.0f);
-
+    v4 constant1110 = v4{1.0f, 1.0f, 1.0f, 0.0f};
+    
     m128 q0 = _mm_add_ps(q.smv, q.smv);
     m128 q1 = _mm_mul_ps(q.smv, q0);
 
@@ -1858,7 +1860,7 @@ inline m4 MatrixRotationQuaternion(v4 q)
     v1 = _mm_and_ps(v1, FM_MASK_3.smv);
     
     // This is DirectXMath's "R0" (The diagonal vector)
-    m128 R0 = _mm_sub_ps(constant1110, v0);
+    m128 R0 = _mm_sub_ps(constant1110.smv, v0);
     R0 = _mm_sub_ps(R0, v1);
 
     v0 = FM_PERMUTE_PS(q.smv, _MM_SHUFFLE(3, 1, 0, 0));
@@ -1869,6 +1871,8 @@ inline m4 MatrixRotationQuaternion(v4 q)
     m128 v2 = FM_PERMUTE_PS(q0, _MM_SHUFFLE(3, 0, 2, 1));
     v1 = _mm_mul_ps(v1, v2);
 
+
+#if 0    
     // This produces DirectXMath's "V0" and "V1" vectors
     m128 V0 = _mm_add_ps(v0, v1);
     m128 V1 = _mm_sub_ps(v0, v1);
@@ -1894,7 +1898,32 @@ inline m4 MatrixRotationQuaternion(v4 q)
     m.r[3] = FM_IDENTITY_R3;
 
     return m;
+#else
+
+    m128 r1 = _mm_add_ps(v0, v1);
+    m128 r2 = _mm_sub_ps(v0, v1);
+
+    v0 = _mm_shuffle_ps(r1, r2, _MM_SHUFFLE(1, 0, 2, 1));
+    v0 = FM_PERMUTE_PS(v0, _MM_SHUFFLE(1, 3, 2, 0));
+    v1 = _mm_shuffle_ps(r1, r2, _MM_SHUFFLE(2, 2, 0, 0));
+    v1 = FM_PERMUTE_PS(v1, _MM_SHUFFLE(2, 0, 2, 0));
+
+    q1 = _mm_shuffle_ps(R0, v0, _MM_SHUFFLE(1, 0, 3, 0));
+    q1 = FM_PERMUTE_PS(q1, _MM_SHUFFLE(1, 3, 2, 0));
+
+    m4 m = {};
+    m.r[0].smv = q1;
+
+    q1 = _mm_shuffle_ps(R0, v0, _MM_SHUFFLE(3, 2, 3, 1));
+    q1 = FM_PERMUTE_PS(q1, _MM_SHUFFLE(1, 3, 0, 2));
+    m.r[1].smv = q1;
+
+    q1 = _mm_shuffle_ps(v1, R0, _MM_SHUFFLE(3, 2, 1, 0));
+    m.r[2].smv = q1;
+    m.r[3] = FM_IDENTITY_R3;
+    return(m);
     
+#endif    
 #endif    
     
 }
@@ -2038,6 +2067,13 @@ Inverse(m4 m, v4* pDet)
 /*
 ************Quaternions***********
  */
+
+inline v4 FCALL
+QuaternionIdentity()
+{
+    v4 result = FM_IDENTITY_R3;
+    return(result);
+}
 
 inline v4 FCALL QuaternionRotationNormal(v4 normalAxis, r32 angle)
 {
@@ -2218,6 +2254,116 @@ inline v4 FCALL QuaternionRotationMatrix(m4 m)
 
 #endif    
 }
+
+inline m4 FCALL
+BuildScalingMatrix(r32 x, r32 y, r32 z)
+{
+#if NO_INTRINSICS
+    m4 m = {};
+
+    m.e[0][0] = x;
+    m.e[0][1] = 0.0f;
+    m.e[0][2] = 0.0f;
+    m.e[0][3] = 0.0f;    
+    
+    m.e[1][0] = 0.0f;
+    m.e[1][1] = y;
+    m.e[1][2] = 0.0f;
+    m.e[1][3] = 0.0f;
+
+    m.e[2][0] = 0.0f;
+    m.e[2][1] = 0.0f;
+    m.e[2][2] = z;
+    m.e[2][3] = 0.0f;
+
+    m.e[3][0] = 0.0f;
+    m.e[3][1] = 0.0f;
+    m.e[3][2] = 0.0f;
+    m.e[3][3] = 1.0f;
+
+    return(m);
+#elif defined(ARM)
+
+#elif defined(SSE)
+    m4 m = {};
+
+    m.r[0].smv = _mm_set_ps(0, 0, 0, x);
+    m.r[1].smv = _mm_set_ps(0, 0, y, 0);
+    m.r[2].smv = _mm_set_ps(0, z, 0, 0);
+    m.r[3].smv = FM_IDENTITY_R3.smv;
+
+    return(m);
+#endif    
+}
+
+inline m4 FCALL
+BuildScalingMatrix(v4 v)
+{
+    m4 result = BuildScalingMatrix(v.x, v.y, v.z);
+    return(result);
+}
+
+inline m4 FCALL
+BuildTranslationMatrix(r32 x, r32 y, r32 z)
+{
+#if NO_INTRINSICS    
+    m4 m = {};
+
+    m.e[0][0] = 1.0f;
+    m.e[0][1] = 0.0f;
+    m.e[0][2] = 0.0f;
+    m.e[0][0] = 0.0f;
+
+    m.e[1][0] = 0.0f;
+    m.e[1][1] = 1.0f;
+    m.e[1][2] = 0.0f;
+    m.e[1][0] = 0.0f;
+
+    m.e[2][0] = 0.0f;
+    m.e[2][1] = 0.0f;
+    m.e[2][2] = 1.0f;
+    m.e[2][0] = 0.0f;
+
+    m.e[3][0] = x;
+    m.e[3][1] = y;
+    m.e[3][2] = z;
+    m.e[3][0] = 1.0f;
+
+
+    return(m);
+#elif defined(ARM)
+
+#elif defined(SSE)
+    m4 m = {};
+
+    m.r[0] = FM_IDENTITY_R0;
+    m.r[1] = FM_IDENTITY_R1;
+    m.r[2] = FM_IDENTITY_R2;
+    m.r[3] = {x, y, z, 1.f};
+    return(m);
+
+#endif    
+}
+
+inline m4 FCALL
+BuildTranslationMatrix(v4 v)
+{
+    m4 result = BuildTranslationMatrix(v.x, v.y, v.z);
+    return(result);
+}
+
+inline m4 FCALL
+CreateModelMatrix(v4 scale, v4 rot, v4 trans)
+{
+
+    m4 scaleM = BuildScalingMatrix(scale);
+    m4 rotM = MatrixRotationQuaternion(rot);
+    m4 translationM = BuildTranslationMatrix(trans);
+    
+    m4 result = scaleM * rotM * translationM;
+    return(result);
+}
+
 
 #define FORTY_MATH_FAST_H
 #endif
