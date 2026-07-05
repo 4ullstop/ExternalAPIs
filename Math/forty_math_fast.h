@@ -1,5 +1,6 @@
 #if !defined (FORTY_MATH_FAST_H)
 #include <xmmintrin.h>
+#include <emmintrin.h>
 #include "../Types/typedefs.h"
 #include "forty_math.h"
 /*
@@ -156,6 +157,8 @@ global_variable v4u32 FM_MASK_Y = {0x00000000, 0xFFFFFFFF, 0x00000000, 0x0000000
 global_variable v4u32 FM_MASK_Z = {0x00000000, 0x00000000, 0xFFFFFFFF, 0x00000000};
 global_variable v4u32 FM_MASK_W = {0x00000000, 0x00000000, 0x00000000, 0xFFFFFFFF};
 
+global_variable v4u32 FM_MASK_XY = {0xFFFFFFFF, 0xFFFFFFFF, 0x00000000, 0x00000000};
+
 global_variable v4 FM_NEGATE_Y = {-1.0f, 1.0f, 1.0f, 1.0f};
 global_variable v4 FM_NEGATE_X = {1.0f, -1.0f, 1.0f, 1.0f};
 global_variable v4 FM_NEGATE_Z = {1.0f, 1.0f, -1.0f, 1.0f};
@@ -177,6 +180,7 @@ global_variable v4 FM_PI_V = {FM_PI, FM_PI, FM_PI, FM_PI};
 global_variable v4 FM_TWO_PI = {FM_2PI, FM_2PI, FM_2PI, FM_2PI};
 global_variable v4 FM_HALFPI = {FM_PIDIV2, FM_PIDIV2, FM_PIDIV2, FM_PIDIV2};
 
+global_variable v4 FM_ONEHALF = {0.5f, 0.5f, 0.5f, 0.5f};
 
 global_variable v4 FM_SIN_COEFFICIENTS_0 = {-0.16666667f, +0.0083333310f, -0.00019840874f, +2.7525562e-06f};
 global_variable v4 FM_SIN_COEFFICIENTS_1 ={-2.3889859e-08f, -0.16665852f /*Est1*/, +0.0083139502f /*Est2*/, -0.00018524670f /*Est3*/};
@@ -184,7 +188,53 @@ global_variable v4 FM_SIN_COEFFICIENTS_1 ={-2.3889859e-08f, -0.16665852f /*Est1*
 global_variable v4 FM_COS_COEFFICIENTS_0 = {-0.5f, +0.041666638f, -0.0013888378f, +2.4760495e-05f};
 global_variable v4 FM_COS_COEFFICIENTS_1 = {-2.6051615e-07f, -0.49992746f /*Est1*/, +0.041493919f /*Est2*/, -0.0012712436f /*Est3*/ };
 
+global_variable v4 FM_TAN_COEFFICIENTS_0 = {1.0f, 0.333333333f, 0.133333333f, 5.396825397e-2f};
+global_variable v4 FM_TAN_COEFFICIENTS_1  = {2.186948854e-2f, 8.863235530e-3f, 3.592128167e-3f, 1.455834485e-3f};
+
+global_variable v4 FM_ATAN_COEFFICIENTS_0 = {-0.3333314528f, +0.1999355085f, -0.1420889944f, +0.1065626393f};
+global_variable v4 FM_ATAN_COEFFICIENTS_1 = { { { -0.0752896400f, +0.0429096138f, -0.0161657367f, +0.0028662257f } } };
+
+global_variable u32 FM_PERMUTE_0X = 0;
+global_variable u32 FM_PERMUTE_0Y = 1;
+global_variable u32 FM_PERMUTE_0Z = 2;
+global_variable u32 FM_PERMUTE_0W = 3;
+global_variable u32 FM_PERMUTE_1X = 4;
+global_variable u32 FM_PERMUTE_1Y = 5;
+global_variable u32 FM_PERMUTE_1Z = 6;
+global_variable u32 FM_PERMUTE_1W = 7;
+
+
+#define FMISINF(x) isinf(x)
+
 r32 ToRad(r32 deg) { return deg * (FM_PI / 180.0f); }
+
+//Wow this function is crazy
+inline v4u32 FCALL
+VectorPermute(v4 a, v4 b, u32 permuteX, u32 permuteY, u32 permuteZ, u32 permuteW)
+{
+    u32* aPtr[2];
+    aPtr[0] = (u32*)&a;
+    aPtr[1] = (u32*)&b;
+
+    v4u32 result;
+    u32 i0 = permuteX & 3;
+    u32 vi0 = permuteX >> 2;
+    result.e[0] = aPtr[vi0][i0];
+
+    u32 i1 = permuteY & 3;
+    u32 vi1 = permuteY >> 2;
+    result.e[1] = aPtr[vi1][i1];
+
+    u32 i2 = permuteZ & 3;
+    u32 vi2 = permuteZ >> 2;
+    result.e[2] = aPtr[vi2][i2];
+
+    u32 i3 = permuteW & 3;
+    u32 vi3 = permuteW >> 2;
+    result.e[3] = aPtr[vi3][i3];
+
+    return(result);
+}
 
 inline v4 FCALL
 SetV4(r32 x, r32 y, r32 z, r32 w)
@@ -311,6 +361,29 @@ operator-=(v4 a)
 {
     *this = *this - a;
     return(*this);
+}
+
+inline v4 FCALL
+VectorMultiplyAdd(v4 a, v4 b, v4 c)
+{
+#if NO_INTRINSICS
+    v4 result =
+    {
+	a.e[0] * b.e[0] + c.e[0],
+	a.e[1] * b.e[1] + c.e[1],
+	a.e[2] * b.e[2] + c.e[2],
+	a.e[3] * b.e[3] + c.e[3]
+    };
+
+    return(result);
+#elif defined(ARM)
+
+#elif defined(SSE)
+    m128 r = FM_FMADD_PS(a.smv, b.smv, c.smv);
+    v4 result = {};
+    result.smv = r;
+    return(result);
+#endif    
 }
 
 inline v4 FCALL
@@ -936,6 +1009,425 @@ VectorSelect(v4 a, v4 b, v4u32 control)
 }
 
 inline v4 FCALL
+VectorSelect(v4 a, v4 b, v4 control)
+{
+    v4u32 temp = {};
+    temp.smv = control.smv;
+    return(VectorSelect(a, b, temp));
+}
+
+inline v4 FCALL
+VectorSelect(v4u32 a, v4 b, v4u32 control)
+{
+    v4 tempA = {};
+    tempA.smv = a.smv;
+    return(VectorSelect(tempA, b, control));
+}
+    
+
+inline v4 FCALL
+SplatX(v4 v)
+{
+#if NO_INTRINSICS
+    v4 result = {};
+    result.e[0] =
+	result.e[1] =
+	result.e[2] =
+	result.e[3] = v.e[0];
+
+    return(result);
+#elif defined(ARM)
+
+#elif defined(SSE)
+    v4 result = {};
+    result.smv = FM_PERMUTE_PS(v.smv, _MM_SHUFFLE(0, 0, 0, 0));
+    return(result);
+#endif    
+}
+
+inline v4 FCALL
+SplatY(v4 v)
+{
+#if NO_INTRINSICS
+    v4 result = {};
+    result.e[0] =
+	result.e[1] =
+	result.e[2] =
+	result.e[3] = v.e[1];
+
+    return(result);
+#elif defined(ARM)
+
+#elif defined(SSE)
+    v4 result = {};
+    result.smv = FM_PERMUTE_PS(v.smv, _MM_SHUFFLE(1, 1, 1, 1));
+    return(result);
+#endif    
+}
+
+inline v4 FCALL
+SplatZ(v4 v)
+{
+#if NO_INTRINSICS
+    v4 result = {};
+    result.e[0] =
+	result.e[1] =
+	result.e[2] =
+	result.e[3] = v.e[2];
+
+    return(result);
+#elif defined(ARM)
+
+#elif defined(SSE)
+    v4 result = {};
+    result.smv = FM_PERMUTE_PS(v.smv, _MM_SHUFFLE(2, 2, 2, 2));
+    return(result);
+#endif    
+}
+
+inline v4 FCALL
+SplatW(v4 v)
+{
+#if NO_INTRINSICS
+    v4 result = {};
+    result.e[0] =
+	result.e[1] =
+	result.e[2] =
+	result.e[3] = v.e[3];
+
+    return(result);
+#elif defined(ARM)
+
+#elif defined(SSE)
+    v4 result = {};
+    result.smv = FM_PERMUTE_PS(v.smv, _MM_SHUFFLE(3, 3, 3, 3));
+    return(result);
+#endif    
+}
+
+inline v4 FCALL
+VectorTrueInt()
+{
+#if NO_INTRINSICS    
+    v4u32 u32Result = {0xFFFFFFFU, 0xFFFFFFFU, 0xFFFFFFFU, 0xFFFFFFFU};
+
+    v4 result = {};
+    result.smv = u32Result.smv;
+    return(result);
+#elif defined(ARM)
+
+#elif defined(SSE)    
+    __m128i v = _mm_set1_epi32(-1);
+    m128 mRes = _mm_castsi128_ps(v);
+    v4 result = {};
+    result.smv = mRes;
+    return(result);
+#endif    
+}
+
+inline v4 FCALL
+VectorAndInt(v4 a, v4 b)
+{
+#if NO_INTRINSICS
+    v4u32 result =
+    {
+	(u32)a.e[0] & (u32)b.e[0],
+	(u32)a.e[1] & (u32)b.e[1],
+	(u32)a.e[2] & (u32)b.e[2],
+	(u32)a.e[3] & (u32)b.e[3]	
+    };
+
+    return(result);
+#elif defined(ARM)
+
+#elif defined(SSE)
+    v4 result = {};
+    result.smv = _mm_and_ps(a.smv, b.smv);
+    return(result);
+#endif
+}
+
+inline v4 FCALL
+VectorEqualInt(v4 a, v4 b)
+{
+#if NO_INTRINSICS    
+    v4u32 control =
+    {
+	((u32)a.e[0] == (u32)b.e[0]) ? 0xFFFFFFFF : 0,
+	((u32)a.e[1] == (u32)b.e[1]) ? 0xFFFFFFFF : 0,
+	((u32)a.e[2] == (u32)b.e[2]) ? 0xFFFFFFFF : 0,
+	((u32)a.e[3] == (u32)b.e[3]) ? 0xFFFFFFFF : 0	
+    };
+    v4 result = {};
+    result.smv = control.smv;
+    return(result);
+#elif defined(ARM)
+
+#elif defined(SSE)
+    __m128i v = _mm_cmpeq_epi32(_mm_castps_si128(a.smv), _mm_castps_si128(b.smv));
+    m128 vres = _mm_castsi128_ps(v);
+    v4 result = {};
+    result.smv = vres;
+    return(result);
+#endif    
+    
+}
+
+inline v4 FCALL
+VectorOrInt(v4 a, v4 b)
+{
+#if NO_INTRINSICS
+    v4u32 u32Res =
+    {
+	(u32)a.e[0] | (u32)b.e[0],
+	(u32)a.e[1] | (u32)b.e[1],
+	(u32)a.e[2] | (u32)b.e[2],
+	(u32)a.e[3] | (u32)b.e[3]
+    };
+
+    v4 result = {};
+    result.smv = u32Res.smv;
+    return(result);
+#elif defined(ARM)
+
+#elif defined(SSE)
+    __m128i v = _mm_or_si128(_mm_castps_si128(a.smv), _mm_castps_si128(b.smv));
+    v4 result = {};
+    result.smv = _mm_castsi128_ps(v);
+    return(result);
+#endif    
+}
+
+inline v4 FCALL
+VectorEqual(v4 a, v4 b)
+{
+#if NO_INTRINSICS
+    v4u32 control =
+    {
+	(a.e[0] == b.e[0]) ? 0xFFFFFFFF : 0,
+	(a.e[1] == b.e[1]) ? 0xFFFFFFFF : 0,
+	(a.e[2] == b.e[2]) ? 0xFFFFFFFF : 0,
+	(a.e[3] == b.e[3]) ? 0xFFFFFFFF : 0
+    };
+    v4 result = {};
+    result.smv = control.smv;
+    return(result);
+#elif defined(ARM)
+
+#elif defined(SSE)
+    v4 result = {};
+    result.smv = _mm_cmpeq_ps(a.smv, b.smv);
+    return(result);
+#endif    
+}
+
+inline v4 FCALL
+VectorIsInf(v4 a)
+{
+#if NO_INTRINSICS
+    v4u32 control =
+    {
+	FMISINF(a.e[0]) ? 0xFFFFFFFU : 0,
+	FMISINF(a.e[1]) ? 0xFFFFFFFU : 0,
+	FMISINF(a.e[2]) ? 0xFFFFFFFU : 0,
+	FMISINF(a.e[3]) ? 0xFFFFFFFU : 0
+    };
+
+    v4 result = {};
+    result.smv = control.smv;
+    return(result);
+#elif defined(ARM)
+
+#elif defined(SSE)
+    m128 temp = _mm_and_ps(a.smv, FM_ABS_MASK.smv);
+    temp = _mm_cmpeq_ps(temp, FM_INF.smv);
+    v4 result = {};
+    result.smv = temp;
+    return(result);
+#endif
+}
+
+inline v4 FCALL
+VectorAbs(v4 v)
+{
+#if NO_INTRINSICS
+    v4 result =
+    {
+	fabsf(v.e[0]),
+	fabsf(v.e[1]),
+	fabsf(v.e[2]),
+	fabsf(v.e[3])
+    };
+    return(result);
+#elif defined(ARM)
+
+#elif defined(SSE)
+    m128 temp = _mm_setzero_ps();
+    temp = _mm_sub_ps(temp, v.smv);
+    temp = _mm_max_ps(temp, v.smv);
+    v4 result = {};
+    result.smv = temp;
+    return(result);
+#endif    
+}
+
+//checked
+inline v4 FCALL
+VectorATan(v4 v)
+{
+#if NO_INTRINSICS
+    v4 result =
+    {
+	atanf(v.e[0]),
+	atanf(v.e[1]),
+	atanf(v.e[2]),
+	atanf(v.e[3])	
+    };
+    return(result);
+#elif defined(ARM)
+
+#elif defined(SSE)
+    v4 absV = VectorAbs(v);
+    m128 invV = _mm_div_ps(FM_ONE.smv, v.smv);
+    m128 comp = _mm_cmpgt_ps(v.smv, FM_ONE.smv);
+    m128 select0 = _mm_and_ps(comp, FM_ONE.smv);
+    m128 select1 = _mm_andnot_ps(comp, FM_NEGATIVE_ONE.smv);
+    m128 sign = _mm_or_ps(select0, select1);
+    comp = _mm_cmple_ps(absV.smv, FM_ONE.smv);
+    select0 = _mm_and_ps(comp, FM_ZERO.smv);
+    select1 = _mm_andnot_ps(comp, sign);
+    sign = _mm_or_ps(select0, select1);
+    select0 = _mm_and_ps(comp, v.smv);
+    select1 = _mm_andnot_ps(comp, invV);
+    m128 x = _mm_or_ps(select0, select1);
+
+    m128 x2 = _mm_mul_ps(x, x);
+
+    v4 tc1 = FM_ATAN_COEFFICIENTS_1;
+    m128 vConstantsB = FM_PERMUTE_PS(tc1.smv, _MM_SHUFFLE(3, 3, 3, 3));
+    m128 vConstants = FM_PERMUTE_PS(tc1.smv, _MM_SHUFFLE(2, 2, 2, 2));
+    m128 res = FM_FMADD_PS(vConstantsB, x2, vConstants);
+
+    vConstants = FM_PERMUTE_PS(tc1.smv, _MM_SHUFFLE(1, 1, 1, 1));
+    res = FM_FMADD_PS(res, x2, vConstants);
+
+    vConstants = FM_PERMUTE_PS(tc1.smv, _MM_SHUFFLE(0, 0, 0, 0));
+    res = FM_FMADD_PS(res, x2, vConstants);
+
+    v4 tc0 = FM_ATAN_COEFFICIENTS_0;
+    vConstants = FM_PERMUTE_PS(tc0.smv, _MM_SHUFFLE(3, 3, 3, 3));
+    res = FM_FMADD_PS(res, x2, vConstants);
+
+    vConstants = FM_PERMUTE_PS(tc0.smv, _MM_SHUFFLE(2, 2, 2, 2));
+    res = FM_FMADD_PS(res, x2, vConstants);
+
+    vConstants = FM_PERMUTE_PS(tc0.smv, _MM_SHUFFLE(1, 1, 1, 1));
+    res = FM_FMADD_PS(res, x2, vConstants);
+    
+    vConstants = FM_PERMUTE_PS(tc0.smv, _MM_SHUFFLE(0, 0, 0, 0));
+    res = FM_FMADD_PS(res, x2, vConstants);
+
+    res = FM_FMADD_PS(res, x2, FM_ONE.smv);
+
+    res = _mm_mul_ps(res, x);
+    m128 res1 = _mm_mul_ps(sign, FM_HALFPI.smv);
+    res1 = _mm_sub_ps(res1, res);
+
+    comp = _mm_cmpeq_ps(sign, FM_ZERO.smv);
+    select0 = _mm_and_ps(comp, res);
+    select1 = _mm_andnot_ps(comp, res1);
+    res = _mm_or_ps(select0, select1);
+    v4 result = {};
+    result.smv = res;
+    return(result);
+#endif    
+}
+ 
+inline v4 FCALL
+VectorATan2(v4 y, v4 x)
+{
+#if NO_INTRINSICS
+    v4 result =
+    {
+	atan2f(y.e[0], x.e[0]),
+	atan2f(y.e[1], x.e[1]),
+	atan2f(y.e[2], x.e[2]),
+	atan2f(y.e[3], x.e[3]),	
+    };
+
+    return(result);
+#elif defined(ARM)
+
+#elif defined(SSE)
+    v4 aTan2Constants = {FM_PI, FM_PIDIV2, FM_PIDIV4, FM_PI * 3.0f / 4.0f};
+
+    v4 zero = {0.0f, 0.0f, 0.0f, 0.0f};
+    v4 aTanResultValid = VectorTrueInt();
+    v4 pi = SplatX(aTan2Constants);
+    v4 piOverTwo = SplatY(aTan2Constants);
+    v4 piOverFour = SplatZ(aTan2Constants);
+    v4 threePiOverFour = SplatW(aTan2Constants);
+
+    v4 yEqualsZero = VectorEqual(y, zero);
+    v4 xEqualsZero = VectorEqual(y, zero);
+    v4 negativeZero = {};
+    negativeZero.smv = FM_NEGATIVE_ZERO.smv;
+    v4 xIsPositive = VectorAndInt(x, negativeZero);
+    xIsPositive = VectorEqualInt(xIsPositive, zero);
+    v4 yEqualsInf = VectorIsInf(y);
+    v4 xEqualsInf = VectorIsInf(x);
+
+    v4 ySign = VectorAndInt(y, negativeZero);
+    pi = VectorOrInt(pi, ySign);
+    piOverTwo = VectorOrInt(piOverTwo, ySign);
+    piOverFour = VectorOrInt(piOverFour, ySign);
+    threePiOverFour = VectorOrInt(threePiOverFour, ySign);
+
+
+
+    v4 r1 = VectorSelect(pi, ySign, xIsPositive);
+    v4 r2 = VectorSelect(aTanResultValid, piOverTwo, xEqualsZero);
+    v4 r3 = VectorSelect(r2, r1, yEqualsZero);
+    v4 r4 = VectorSelect(threePiOverFour, piOverFour, xIsPositive);
+    v4 r5 = VectorSelect(piOverTwo, r4, xEqualsInf);
+
+    v4 result = VectorSelect(r3, r5, yEqualsInf);
+    aTanResultValid = VectorEqualInt(result, aTanResultValid);
+
+    v4 v = y / x;
+    v4 r0 = VectorATan(v);
+
+
+    
+    r1 = VectorSelect(pi, negativeZero, xIsPositive);
+    r2 = r0 + r1;
+    return(VectorSelect(result, r2, aTanResultValid));
+#endif
+}
+
+inline v4 FCALL
+VectorLess(v4 a, v4 b)
+{
+#if NO_INTRINSICS
+    v4 control =
+    {
+	(a.e[0] < b.e[0]) ? 0xFFFFFFFF : 0,
+	(a.e[1] < b.e[1]) ? 0xFFFFFFFF : 0,
+	(a.e[2] < b.e[2]) ? 0xFFFFFFFF : 0,
+	(a.e[3] < b.e[3]) ? 0xFFFFFFFF : 0
+    };
+
+    return(control);
+#elif defined(ARM)
+
+#elif defined(SSE)
+    v4 result = {};
+    result.smv = _mm_cmplt_ps(a.smv, b.smv);
+    return(result);
+#endif
+}
+
+inline v4 FCALL
 MergeXY(v4 a, v4 b)
 {
 #if NO_INTRINSICS
@@ -1033,6 +1525,60 @@ inline v4 FCALL VectorModAngles(v4 angles)
 #endif    
 }
 
+//Checked
+inline v4 FCALL
+VectorSin(v4 v)
+{
+#if NO_INTRINSICS
+    v4 result =
+    {
+	sinf(v.e[0]),
+	sinf(v.e[1]),
+	sinf(v.e[2]),
+	sinf(v.e[3])
+    };
+    return(result);
+#elif defined(ARM)
+
+#elif defined(SSE)
+    v4 x = VectorModAngles(v);
+
+    m128 sign = _mm_and_ps(x.smv, FM_NEGATIVE_ZERO.smv);
+    m128 c = _mm_or_ps(FM_PI_V.smv, sign);
+    m128 absx = _mm_andnot_ps(sign, x.smv);
+    m128 rflx = _mm_sub_ps(c, x.smv);
+    m128 comp = _mm_cmple_ps(absx, FM_HALFPI.smv);
+    m128 select0 = _mm_and_ps(comp, x.smv);
+    m128 select1 = _mm_andnot_ps(comp, rflx);
+    x.smv = _mm_or_ps(select0, select1);
+
+    m128 x2 = _mm_mul_ps(x.smv, x.smv);
+
+    v4 sc1 = FM_SIN_COEFFICIENTS_1;
+    m128 vConstantsB = FM_PERMUTE_PS(sc1.smv, _MM_SHUFFLE(0, 0, 0, 0));
+    v4 sc0 = FM_SIN_COEFFICIENTS_0;
+    m128 vConstants = FM_PERMUTE_PS(sc0.smv, _MM_SHUFFLE(3, 3, 3, 3));
+    m128 result = FM_FMADD_PS(vConstantsB, x2, vConstants);
+
+    vConstants = FM_PERMUTE_PS(sc0.smv, _MM_SHUFFLE(2, 2, 2, 2));
+    result = FM_FMADD_PS(result, x2, vConstants);
+
+    vConstants = FM_PERMUTE_PS(sc0.smv, _MM_SHUFFLE(1, 1, 1, 1));
+    result = FM_FMADD_PS(result, x2, vConstants);
+
+    vConstants = FM_PERMUTE_PS(sc0.smv, _MM_SHUFFLE(0, 0, 0, 0));
+    result = FM_FMADD_PS(result, x2, vConstants);
+
+    result = FM_FMADD_PS(result, x2, FM_ONE.smv);
+    result = _mm_mul_ps(result, x.smv);
+
+    v4 vRes = {};
+    vRes.smv = result;
+    return(vRes);
+#endif    
+}
+
+
 inline void FCALL VectorSinCos
 (
     v4* pSin,
@@ -1121,6 +1667,23 @@ inline void FCALL VectorSinCos
     *pCos = resV;
 #endif    
 }
+
+inline v4 Lerp(v4 a, v4 b, r32 t)
+{
+#if NO_INTRINSICS
+    v4 result = a + (b - a) * t;
+#elif defined(ARM)
+
+#elif defined(SSE)
+    m128 L = _mm_sub_ps(b.smv, a.smv);
+    m128 S = _mm_set_ps1(t);
+    v4 result = {};
+    result.smv = FM_FMADD_PS(L, S, a.smv);
+    return(result);
+#endif    
+}
+
+
 /*
 ****************************M4*******************************
  */
@@ -1872,33 +2435,6 @@ inline m4 MatrixRotationQuaternion(v4 q)
     v1 = _mm_mul_ps(v1, v2);
 
 
-#if 0    
-    // This produces DirectXMath's "V0" and "V1" vectors
-    m128 V0 = _mm_add_ps(v0, v1);
-    m128 V1 = _mm_sub_ps(v0, v1);
-
-    // --- NOW YOUR DIRECTXMATH BLOCKS WILL WORK PERFECTLY ---
-    m4 m = {};
-
-    // Row 0
-    q1 = _mm_shuffle_ps(R0, V0, _MM_SHUFFLE(1, 0, 3, 0));
-    q1 = FM_PERMUTE_PS(q1, _MM_SHUFFLE(1, 3, 2, 0));
-    m.r[0].smv = q1;
-
-    // Row 1
-    q1 = _mm_shuffle_ps(R0, V0, _MM_SHUFFLE(3, 2, 3, 1));
-    q1 = FM_PERMUTE_PS(q1, _MM_SHUFFLE(1, 3, 0, 2));
-    m.r[1].smv = q1;
-
-    // Row 2 (This matches exactly now because V1 and R0 mean what DirectXMath expects!)
-    q1 = _mm_shuffle_ps(V1, R0, _MM_SHUFFLE(3, 2, 1, 0));
-    m.r[2].smv = q1;
-
-    // Row 3
-    m.r[3] = FM_IDENTITY_R3;
-
-    return m;
-#else
 
     m128 r1 = _mm_add_ps(v0, v1);
     m128 r2 = _mm_sub_ps(v0, v1);
@@ -1923,7 +2459,7 @@ inline m4 MatrixRotationQuaternion(v4 q)
     m.r[3] = FM_IDENTITY_R3;
     return(m);
     
-#endif    
+
 #endif    
     
 }
@@ -2255,6 +2791,143 @@ inline v4 FCALL QuaternionRotationMatrix(m4 m)
 #endif    
 }
 
+inline v4 FCALL
+QuaternionMultiply(v4 a, v4 b)
+{
+#if NO_INTRINSICS
+
+    v4 result  =
+	{
+            (b.e[3] * a.e[0]) + (b.e[0] * a.e[3]) + (b.e[1] * a.e[2]) - (b.e[2] * a.e[1]),
+            (b.e[3] * a.e[1]) - (b.e[0] * a.e[2]) + (b.e[1] * a.e[3]) + (b.e[2] * a.e[0]),
+            (b.e[3] * a.e[2]) + (b.e[0] * a.e[1]) - (b.e[1] * a.e[0]) + (b.e[2] * a.e[3]),
+            (b.e[3] * a.e[3]) - (b.e[0] * a.e[0]) - (b.e[1] * a.e[1]) - (b.e[2] * a.e[2])
+        };
+    return(result);    
+#elif defined(ARM)
+
+#elif defined(SSE)
+    v4 controlWZYX = {1.0f, -1.0f, 1.0f, -1.0f};
+    v4 controlZWXY = {1.0f, 1.0f, -1.0f, -1.0f};
+    v4 controlYXWZ = {-1.0f, 1.0f, 1.0f, -1.0f};
+    m128 q2x = b.smv;
+    m128 q2y = b.smv;
+    m128 q2z = b.smv;
+    v4 result = b;
+
+    result.smv = FM_PERMUTE_PS(result.smv, _MM_SHUFFLE(3, 3, 3, 3));
+    q2x = FM_PERMUTE_PS(q2x, _MM_SHUFFLE(0, 0, 0, 0));
+    q2y = FM_PERMUTE_PS(q2y, _MM_SHUFFLE(1, 1, 1, 1));
+    q2z = FM_PERMUTE_PS(q2z, _MM_SHUFFLE(2, 2, 2, 2));
+
+    result.smv = _mm_mul_ps(result.smv, a.smv);
+    m128 q1Shuffle = a.smv;
+    q1Shuffle = FM_PERMUTE_PS(q1Shuffle, _MM_SHUFFLE(0, 1, 2, 3));
+    q2x = _mm_mul_ps(q2x, q1Shuffle);
+    q1Shuffle = FM_PERMUTE_PS(q1Shuffle, _MM_SHUFFLE(2, 3, 0, 1));
+    result.smv = FM_FMADD_PS(q2x, controlWZYX.smv, result.smv);
+    q2y = _mm_mul_ps(q2y, q1Shuffle);
+    q1Shuffle = FM_PERMUTE_PS(q1Shuffle, _MM_SHUFFLE(0, 1, 2, 3));
+    q2y = _mm_mul_ps(q2y, controlZWXY.smv);
+    q2z = _mm_mul_ps(q2z, q1Shuffle);
+    q2y = FM_FMADD_PS(q2z, controlYXWZ.smv, q2y);
+    result.smv = _mm_add_ps(result.smv, q2y);
+    return(result);
+#endif    
+}
+
+inline v4 FCALL
+QuaternionConjugate(v4 q)
+{
+#if NO_INTRINSICS
+    v4 result =
+    {
+	-q.e[0],
+	-q.e[1],
+	-q.e[2],
+	q.e[3]
+    };
+
+    return(result);
+#elif defined(ARM)
+
+#elif defined(SSE)
+    v4 negativeOne3 = {-1.0f, -1.0f, -1.0f, 1.0f};
+    v4 result = {};
+    result.smv = _mm_mul_ps(q.smv, negativeOne3.smv);
+    return(result);
+#endif    
+}
+
+inline v4 FCALL
+Vector3Rotate(v4 v, v4 rotQ)
+{
+    v4 a = VectorSelect(FM_SELECT1110, v, FM_SELECT1110);
+    v4 q = QuaternionConjugate(rotQ);
+    v4 result = QuaternionMultiply(q, a);
+    return(QuaternionMultiply(result, rotQ));
+}
+
+inline v4 FCALL
+QuaternionDot(v4 a, v4 b)
+{
+    return(DotV4(a, b));
+}
+
+//Checked
+inline v4 FCALL
+QuaternionSlerpV(v4 q0, v4 q1, v4 t)
+{
+#if NO_INTRINSICS
+
+#elif defined(ARM)
+
+#elif defined(SSE)
+    v4 oneMinusEpsilon = {1.0f - 0.00001f, 1.0f - 0.00001f, 1.0f - 0.00001f, 1.0f - 0.00001f};
+    v4u32 signMask2 = {0x80000000, 0x00000000, 0x00000000, 0x00000000};
+
+    v4 cosOmega = QuaternionDot(q0, q1);
+
+    v4 zero = {0.0f, 0.0f, 0.0f, 0.0f};
+    v4 control = VectorLess(cosOmega, zero);
+    v4 sign = VectorSelect(FM_ONE, FM_NEGATIVE_ONE, control);
+
+    cosOmega.smv = _mm_mul_ps(cosOmega.smv, sign.smv);
+    control = VectorLess(cosOmega, oneMinusEpsilon);
+
+    v4 sinOmega = {};
+    sinOmega.smv = _mm_mul_ps(cosOmega.smv, cosOmega.smv);
+    sinOmega.smv = _mm_sub_ps(FM_ONE.smv, sinOmega.smv);
+    sinOmega.smv = _mm_sqrt_ps(sinOmega.smv);
+
+    v4 omega = VectorATan2(sinOmega, cosOmega);
+
+    v4 v01 = {};
+    v01.smv = FM_PERMUTE_PS(t.smv, _MM_SHUFFLE(2, 3, 0, 1));
+    v01.smv = _mm_and_ps(v01.smv, FM_MASK_XY.smv);
+    v01.smv = _mm_xor_ps(v01.smv, signMask2.smv);
+    v01.smv = _mm_add_ps(FM_IDENTITY_R0.smv, v01.smv);
+    
+    v4 s0 = {};
+    s0.smv = _mm_mul_ps(v01.smv, omega.smv);
+    s0 = VectorSin(s0);
+    s0.smv = _mm_div_ps(s0.smv, sinOmega.smv);
+    
+    s0 = VectorSelect(v01, s0, control);
+
+    v4 s1 = SplatY(s0);
+    s0 = SplatX(s0);
+
+    s1.smv = _mm_mul_ps(s1.smv, sign.smv);
+    v4 result = {};
+    result.smv = _mm_mul_ps(q0.smv, s0.smv);
+    s1.smv = _mm_mul_ps(s1.smv, q1.smv);
+    result.smv = _mm_add_ps(result.smv, s1.smv);
+    return(result);
+    //Check to see if these functions work (including the ones like Sin and ATan2)
+#endif    
+}
+
 inline m4 FCALL
 BuildScalingMatrix(r32 x, r32 y, r32 z)
 {
@@ -2345,6 +3018,69 @@ BuildTranslationMatrix(r32 x, r32 y, r32 z)
 #endif    
 }
 
+inline v4 FCALL
+QuaternionFromEuler(v4 angles)
+{
+#if NO_INTRINSICS
+    r32 halfPitch = angles.e[0] * 0.5f;
+    r32 cp = cosf(halfPitch);
+    r32 sp = sinf(halfPitch);
+
+    r32 halfYaw = angles.e[1] * 0.5f;
+    r32 cy = cosf(halfYaw);
+    r32 sy = sinf(halfYaw);
+
+    r32 halfRoll = angles.e[2] * 0.5f;
+    r32 cr = cosf(halfRoll);
+    r32 sr = sinf(halfRoll);
+
+    v4 result =
+    {
+	cr * sp * cy + sr * cp * sy,
+	cr * cp * sy - sr * sp * cy,
+	sr * cp * cy - cr * sp * sy,
+	cr * cp * cy + sr * sp * sy
+    };
+    return(result);
+#else
+    v4 sign = {1.0f, -1.0f, -1.0f, 1.0f};
+
+    v4 halfAngles = angles * FM_ONEHALF;
+    v4 sinAngles, cosAngles;
+    VectorSinCos(&sinAngles, &cosAngles, halfAngles);
+
+
+    v4 P0, Y0, R0, P1, Y1, R1;
+    v4u32 temp = VectorPermute(sinAngles, cosAngles, FM_PERMUTE_0X, FM_PERMUTE_1X, FM_PERMUTE_1X, FM_PERMUTE_1X);    
+    P0.smv = temp.smv;
+    temp = VectorPermute(sinAngles, cosAngles, FM_PERMUTE_1Y, FM_PERMUTE_0Y, FM_PERMUTE_1Y, FM_PERMUTE_1Y);
+    Y0.smv = temp.smv;
+    temp = VectorPermute(sinAngles, cosAngles, FM_PERMUTE_1Z, FM_PERMUTE_1Z, FM_PERMUTE_0Z, FM_PERMUTE_1Z);
+    R0.smv = temp.smv;
+    temp = VectorPermute(cosAngles, sinAngles, FM_PERMUTE_0X, FM_PERMUTE_1X, FM_PERMUTE_1X, FM_PERMUTE_1X);
+    P1.smv = temp.smv;
+    temp = VectorPermute(cosAngles, sinAngles, FM_PERMUTE_1Y, FM_PERMUTE_0Y, FM_PERMUTE_1Y, FM_PERMUTE_1Y);
+    Y1.smv = temp.smv;
+    temp = VectorPermute(cosAngles, sinAngles, FM_PERMUTE_1Z, FM_PERMUTE_1Z, FM_PERMUTE_0Z, FM_PERMUTE_1Z);
+    R1.smv = temp.smv;
+    
+    v4 q1 = P1 * sign;
+    v4 q0 = P0 * Y0;
+
+    q1 = q1 * Y1;
+    q0 = q0 * R0;
+    v4 q = VectorMultiplyAdd(q1, R1, q0);
+    return(q);
+#endif    
+}
+
+inline v4 FCALL
+QuaternionFromEuler(r32 pitch, r32 yaw, r32 roll)
+{
+    v4 v = {pitch, yaw, roll, 0.0f};
+    return(QuaternionFromEuler(v));
+}
+
 inline m4 FCALL
 BuildTranslationMatrix(v4 v)
 {
@@ -2352,15 +3088,17 @@ BuildTranslationMatrix(v4 v)
     return(result);
 }
 
+
 inline m4 FCALL
 CreateModelMatrix(v4 scale, v4 rot, v4 trans)
 {
 
     m4 scaleM = BuildScalingMatrix(scale);
-    m4 rotM = MatrixRotationQuaternion(rot);
+    v4 normalizedRot = QuaternionNormalize(rot);
+    m4 rotM = MatrixRotationQuaternion(normalizedRot);
     m4 translationM = BuildTranslationMatrix(trans);
     
-    m4 result = scaleM * rotM * translationM;
+    m4 result = translationM * rotM * scaleM;
     return(result);
 }
 

@@ -314,12 +314,12 @@ void* MemCpy(void* dest, void* src, size_t n)
 }
 
 //Add to front of list, could prob rename this sometime
-void AddListedItem(listed_memory* rec, void* data, size_t dataSize, listed_memory_node** recList)
+listed_memory_node* AddListedItem(listed_memory* rec, void* data, size_t dataSize, listed_memory_node** recList)
 {
     Assert(dataSize == rec->dataSize);
 
     listed_memory_node* newNode = (listed_memory_node*)ListAlloc(rec);
-    if (!newNode) return;
+    if (!newNode) return nullptr;
     
     MemCpy(newNode->data, data, dataSize);
 
@@ -337,6 +337,8 @@ void AddListedItem(listed_memory* rec, void* data, size_t dataSize, listed_memor
 	newNode->prev = NULL;
 	*recList = newNode;
     }
+
+    return(newNode);
 }
 
 void AddToEndOfList(listed_memory* rec, void* data, size_t dataSize, listed_memory_node** recList)

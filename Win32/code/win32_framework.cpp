@@ -7,6 +7,9 @@
 #include "../../FileReader/file_reader.cpp"
 #include "D:/ExternalCustomAPIs/OBJLoader/code/obj_parser_dll_include.h"
 
+//REMOVE THIS
+#include <stdio.h>
+
 #if 0
 global_variable program_memory memory;
 global_variable memory_arena tempArena;
@@ -96,20 +99,23 @@ void Win32ProcessKeyboardMessage(game_button_state* newState, game_button_state*
     }
     newState->wasDown = isDown;
 
-    if (oldState->released)
-    {
-	oldState->released = false;
-    }
-
     if (oldState->endedDown)
     {
 	newState->started = false;
     }
 
-    if (!newState->endedDown && oldState->endedDown)
+
+    if (oldState->released)
+    {
+	oldState->released = false;
+	newState->released = false;
+    }    
+
+    if (!newState->endedDown && oldState->endedDown && oldState->released)
     {
 	newState->released = true;
     }
+
 }
 
 void Win32ProcessMouseMessage(game_button_state* nMouse, game_button_state* oMouse, bool32 down)
@@ -156,7 +162,63 @@ void Win32ProcessPendingMessages(game_controller_input* keyboardController, game
 	{
 
 	} break;
-	case WM_INPUT:
+	case WM_INPUT:	
+	{
+	    UINT dwSize = 0;
+	    //Mouse inputs (using raw data for unbounded mouse movements)
+	    GetRawInputData((HRAWINPUT)msg.lParam, RID_INPUT, NULL, &dwSize, sizeof(RAWINPUTHEADER));
+	    LPBYTE lpb = (LPBYTE)memoryPoolCode->PushStruct(perFrameArena, (sizeof(BYTE)) * dwSize);
+	    GetRawInputData((HRAWINPUT)msg.lParam, RID_INPUT, lpb, &dwSize, sizeof(RAWINPUTHEADER));
+	    RAWINPUT* raw = (RAWINPUT*)lpb;
+
+	    if (raw->header.dwType == RIM_TYPEMOUSE)
+	    {
+		mouse->loc.x = (r32)raw->data.mouse.lLastX;
+		mouse->loc.y = (r32)raw->data.mouse.lLastY;
+
+		bool32 isMouseDown = false;
+
+		if (raw->data.mouse.usButtonFlags == RI_MOUSE_MIDDLE_BUTTON_DOWN)
+		{
+		    Win32ProcessMouseMessage(&newInput->mouseButtons[e_mouse_buttons::middle_mouse],
+					     &oldInput->mouseButtons[e_mouse_buttons::middle_mouse],
+					     true);
+		}
+		else if (raw->data.mouse.usButtonFlags == RI_MOUSE_MIDDLE_BUTTON_UP)
+		{
+		    Win32ProcessMouseMessage(&newInput->mouseButtons[e_mouse_buttons::middle_mouse],
+					     &oldInput->mouseButtons[e_mouse_buttons::middle_mouse],
+					     false);
+		}
+
+		if (raw->data.mouse.usButtonFlags == RI_MOUSE_LEFT_BUTTON_DOWN)
+		{
+		    Win32ProcessMouseMessage(&newInput->mouseButtons[e_mouse_buttons::left_mouse],
+					     &oldInput->mouseButtons[e_mouse_buttons::left_mouse],
+					     true);
+		}
+		else if (raw->data.mouse.usButtonFlags == RI_MOUSE_LEFT_BUTTON_UP)
+		{
+		    Win32ProcessMouseMessage(&newInput->mouseButtons[e_mouse_buttons::left_mouse],
+					     &oldInput->mouseButtons[e_mouse_buttons::left_mouse],
+					     false);
+		}
+
+		if (raw->data.mouse.usButtonFlags == RI_MOUSE_RIGHT_BUTTON_DOWN)
+		{
+		    Win32ProcessMouseMessage(&newInput->mouseButtons[e_mouse_buttons::right_mouse],
+					     &oldInput->mouseButtons[e_mouse_buttons::right_mouse],
+					     true);
+		}
+		else if (raw->data.mouse.usButtonFlags == RI_MOUSE_RIGHT_BUTTON_UP)
+		{
+		    Win32ProcessMouseMessage(&newInput->mouseButtons[e_mouse_buttons::right_mouse],
+					     &oldInput->mouseButtons[e_mouse_buttons::right_mouse],
+					     false);
+		}
+	    }
+
+	} break;
 	case WM_SYSKEYDOWN:
 	case WM_SYSKEYUP:
 	case WM_KEYUP:
@@ -211,60 +273,6 @@ void Win32ProcessPendingMessages(game_controller_input* keyboardController, game
 		    //need to figure this out when time comes
 		}
 	    }
-
-	    //Mouse inputs (using raw data for unbounded mouse movements)
-	    GetRawInputData((HRAWINPUT)msg.lParam, RID_INPUT, NULL, &dwSize, sizeof(RAWINPUTHEADER));
-	    LPBYTE lpb = (LPBYTE)memoryPoolCode->PushStruct(perFrameArena, (sizeof(BYTE)) * dwSize);
-	    GetRawInputData((HRAWINPUT)msg.lParam, RID_INPUT, lpb, &dwSize, sizeof(RAWINPUTHEADER));
-	    RAWINPUT* raw = (RAWINPUT*)lpb;
-
-	    if (raw->header.dwType == RIM_TYPEMOUSE)
-	    {
-		mouse->loc.x = (r32)raw->data.mouse.lLastX;
-		mouse->loc.y = (r32)raw->data.mouse.lLastY;
-
-		bool32 isMouseDown = false;
-
-		if (raw->data.mouse.usButtonFlags == RI_MOUSE_MIDDLE_BUTTON_DOWN)
-		{
-		    Win32ProcessMouseMessage(&newInput->mouseButtons[e_mouse_buttons::middle_mouse],
-					     &oldInput->mouseButtons[e_mouse_buttons::middle_mouse],
-					     true);
-		}
-		else if (raw->data.mouse.usButtonFlags == RI_MOUSE_MIDDLE_BUTTON_UP)
-		{
-		    Win32ProcessMouseMessage(&newInput->mouseButtons[e_mouse_buttons::middle_mouse],
-					     &oldInput->mouseButtons[e_mouse_buttons::middle_mouse],
-					     false);
-		}
-
-		if (raw->data.mouse.usButtonFlags == RI_MOUSE_LEFT_BUTTON_DOWN)
-		{
-		    Win32ProcessMouseMessage(&newInput->mouseButtons[e_mouse_buttons::left_mouse],
-					     &oldInput->mouseButtons[e_mouse_buttons::left_mouse],
-					     true);
-		}
-		else if (raw->data.mouse.usButtonFlags == RI_MOUSE_LEFT_BUTTON_UP)
-		{
-		    Win32ProcessMouseMessage(&newInput->mouseButtons[e_mouse_buttons::left_mouse],
-					     &oldInput->mouseButtons[e_mouse_buttons::left_mouse],
-					     false);
-		}
-
-		if (raw->data.mouse.usButtonFlags == RI_MOUSE_RIGHT_BUTTON_DOWN)
-		{
-		    Win32ProcessMouseMessage(&newInput->mouseButtons[e_mouse_buttons::right_mouse],
-					     &oldInput->mouseButtons[e_mouse_buttons::right_mouse],
-					     true);
-		}
-		else if (raw->data.mouse.usButtonFlags == RI_MOUSE_RIGHT_BUTTON_UP)
-		{
-		    Win32ProcessMouseMessage(&newInput->mouseButtons[e_mouse_buttons::right_mouse],
-					     &oldInput->mouseButtons[e_mouse_buttons::right_mouse],
-					     false);
-		}
-	    }
-	    
 	} break;
 	default:
 	{

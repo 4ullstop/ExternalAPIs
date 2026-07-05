@@ -108,11 +108,12 @@ MEMORY_POOL_INIT_LISTED_MEMORY(InitListedMemoryStub)
 global_variable memory_pool_init_listed_memory* InitListedMemory_ = InitListedMemoryStub;
 #define InitListedMemory InitListedMemory_
 
-#define MEMORY_POOL_ADD_LISTED_ITEM(name) void name(listed_memory* rec, void* data, size_t dataSize, listed_memory_node** recList)
+#define MEMORY_POOL_ADD_LISTED_ITEM(name) listed_memory_node* name(listed_memory* rec, void* data, size_t dataSize, listed_memory_node** recList)
 typedef MEMORY_POOL_ADD_LISTED_ITEM(memory_pool_add_listed_item);
 MEMORY_POOL_ADD_LISTED_ITEM(AddListedItemStub)
 {
-
+    listed_memory_node* temp = 0;
+    return(temp);
 }
 global_variable memory_pool_add_listed_item* AddListedItem_ = AddListedItemStub;
 #define AddListedItem AddListedItem_

@@ -40,11 +40,12 @@ GAME_LOAD_OBJ_FILES(GameLoadObjFilesStub)
 global_variable game_load_obj_files* GameLoadObjFiles_ = GameLoadObjFilesStub;
 #define GameLoadObjFiles GameLoadObjFiles_
 
-#define GAME_SPAWN_NEW_OBJ(name) void name(spawnable_obj_type type, transform startTrans, game_loaded_objs* loadedObjs, memory_pool_dll_code* memoryPoolCode)
+#define GAME_SPAWN_NEW_OBJ(name) spawned_obj_info* name(spawnable_obj_type type, transform startTrans, game_loaded_objs* loadedObjs, memory_pool_dll_code* memoryPoolCode)
 typedef GAME_SPAWN_NEW_OBJ(game_spawn_new_obj);
 GAME_SPAWN_NEW_OBJ(GameSpawnNewObjStub)
 {
-    
+    spawned_obj_info* temp = 0;
+    return(temp);
 }
 global_variable game_spawn_new_obj* GameSpawnNewObj_ = GameSpawnNewObjStub;
 #define GameSpawnNewObj GameSpawnNewObj_

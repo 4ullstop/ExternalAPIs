@@ -30,6 +30,7 @@ void GameUpdateCamera(game_camera* camera)
     camera->pitch += camera->yChange;
 
     //This isn't perfect but can be fixed later
+
     if (camera->pitch > 89.0f)
     {
 	camera->pitch = 89.0f;
@@ -38,21 +39,42 @@ void GameUpdateCamera(game_camera* camera)
     {
 	camera->pitch = -89.0f;
     }
+
+    r32 totalYaw = camera->yaw;
     
     camera->front =
-    {
-	(r32)(cos(camera->pitch) * sin(camera->yaw)),
-	(r32)(sin(camera->pitch)),
-	(r32)(cos(camera->yaw) * cos(camera->pitch)),
-    };
+	{
+	    (r32)(cos(camera->pitch) * sin(totalYaw)),
+	    (r32)(sin(camera->pitch)),
+	    (r32)(cos(totalYaw) * cos(camera->pitch)),
+	};
 
     camera->front = NormalizeV3(camera->front);
+
     //now we want the w coord involved?
     camera->right = NormalizeV4(CrossV3(camera->front, camera->worldUp));
     camera->up = NormalizeV4(CrossV3(camera->right, camera->front));
 
-    camera->view = Transpose(LookAtRH(camera->position, (camera->front + camera->position), camera->up));
-    
+
+    v4 target = {};
+
+    if (camera->inheritRotation)
+    {
+
+	v4 frontTarget = Vector3Rotate(camera->front, camera->inheritedRotation);
+	frontTarget = NormalizeV3(frontTarget);
+	target = frontTarget + camera->position;
+	camera->up = Vector3Rotate(camera->up, camera->inheritedRotation);
+    }
+    else
+    {
+	target = camera->front + camera->position;	
+    }
+
+
+
+    camera->view = Transpose(LookAtRH(camera->position, target, camera->up));
+    camera->viewInv = Inverse(camera->view, nullptr);    
 }
 
 //Eventually the goal would be to look into a directory, find all of the .obj files and load them in
@@ -85,17 +107,19 @@ game_loaded_objs LoadGameOBJFiles(parse_obj_data_code* parseObjCode, framework_a
     return(result);
 }
 
-void SpawnNewOBJ(spawnable_obj_type type, transform startTrans, game_loaded_objs* loadedObjs, memory_pool_dll_code* memoryPoolCode)
+spawned_obj_info* SpawnNewOBJ(spawnable_obj_type type, transform startTrans, game_loaded_objs* loadedObjs, memory_pool_dll_code* memoryPoolCode)
 {
     spawned_obj_info newInfo;
     newInfo.modelTransform = startTrans;
     newInfo.modelMatrix = CreateModelMatrix(startTrans.scale, startTrans.rotation, startTrans.location);
     newInfo.type = type;
 
-    memoryPoolCode->AddListedItem(loadedObjs->spawnedObjMemory,
-				  (void*)&newInfo,
-				  sizeof(newInfo),
-				  &loadedObjs->spawnedObjNodes);
+    listed_memory_node* node = memoryPoolCode->AddListedItem(loadedObjs->spawnedObjMemory,
+							     (void*)&newInfo,
+							     sizeof(newInfo),
+							     &loadedObjs->spawnedObjNodes);
+    spawned_obj_info* outInfo = (spawned_obj_info*)node->data;
+    return(outInfo);
 }
 
 void UpdateInternalTransformations(game_camera* camera)
