@@ -90,18 +90,23 @@ void Win32SetMouseStates(game_input* newInput, game_input* oldInput)
 
 void Win32ProcessKeyboardMessage(game_button_state* newState, game_button_state* oldState, bool32 isDown)
 {
+
+
+
     if (newState->endedDown != isDown)
     {
 	newState->endedDown = isDown;
 
-	newState->started = isDown;
+
 	++newState->halfTransitionCount;
     }
     newState->wasDown = isDown;
 
-    if (oldState->endedDown)
+
+
+    if (isDown && newState->endedDown)
     {
-	newState->started = false;
+	newState->started = true;
     }
 
 
@@ -111,7 +116,8 @@ void Win32ProcessKeyboardMessage(game_button_state* newState, game_button_state*
 	newState->released = false;
     }    
 
-    if (!newState->endedDown && oldState->endedDown && oldState->released)
+    
+    if (oldState->endedDown)
     {
 	newState->released = true;
     }
@@ -266,6 +272,42 @@ void Win32ProcessPendingMessages(game_controller_input* keyboardController, game
 		{
 		    Win32ProcessKeyboardMessage(&keyboardController->testKey,
 						&oldKeyboardController->testKey, isDown);
+		}
+		else if (VKCode == '1')
+		{
+		    Win32ProcessKeyboardMessage(&keyboardController->one,
+						&oldKeyboardController->one, isDown);
+		    
+		}
+		else if (VKCode == '2')
+		{
+		    Win32ProcessKeyboardMessage(&keyboardController->two,
+						&oldKeyboardController->two, isDown);
+		}
+		else if (VKCode == '3')
+		{
+		    Win32ProcessKeyboardMessage(&keyboardController->three,
+						&oldKeyboardController->three, isDown);
+		}
+		else if (VKCode == '4')
+		{
+		    Win32ProcessKeyboardMessage(&keyboardController->four,
+						&oldKeyboardController->four, isDown);
+		}
+		else if (VKCode == '5')
+		{
+		    Win32ProcessKeyboardMessage(&keyboardController->five,
+						&oldKeyboardController->five, isDown);
+		}
+		else if (VKCode == '6')
+		{
+		    Win32ProcessKeyboardMessage(&keyboardController->six,
+						&oldKeyboardController->six, isDown);
+		}
+		else if (VKCode == '7')
+		{
+		    Win32ProcessKeyboardMessage(&keyboardController->seven,
+						&oldKeyboardController->seven, isDown);		    
 		}
 		else if (VKCode == VK_ESCAPE)
 		{
@@ -529,7 +571,7 @@ void Win32CreateSpawnableBuffers(game_loaded_objs* gameObjs, win32_spawnable_obj
 	Assert(win32DrawnBuffers);
 	Assert(objsToSpawn);
 
-	*(win32DrawnBuffers) = CreateBuffersFromOBJ(gameObjs->staticLoadedObjs, tempArena, d3dDevice, memoryPoolCode);
+	*(win32DrawnBuffers) = CreateBuffersFromOBJ(objsToSpawn, tempArena, d3dDevice, memoryPoolCode);
 	win32DrawnBuffers++;
 	objsToSpawn++;
     }

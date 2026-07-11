@@ -35,7 +35,6 @@ struct alignas(16) game_camera
     v4 targetForward;
 
     v4 inheritedLocation;
-    v4 inheritedOffset;
     v4 inheritedRotation;
     
     v4 targetQRot;

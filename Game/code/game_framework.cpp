@@ -70,7 +70,7 @@ void GameUpdateCamera(game_camera* camera)
     {
 	target = camera->front + camera->position;	
     }
-
+ 
 
 
     camera->view = Transpose(LookAtRH(camera->position, target, camera->up));
@@ -107,11 +107,21 @@ game_loaded_objs LoadGameOBJFiles(parse_obj_data_code* parseObjCode, framework_a
     return(result);
 }
 
-spawned_obj_info* SpawnNewOBJ(spawnable_obj_type type, transform startTrans, game_loaded_objs* loadedObjs, memory_pool_dll_code* memoryPoolCode)
+spawned_obj_info* SpawnNewOBJ(spawnable_obj_type type, transform startTrans, game_loaded_objs* loadedObjs, memory_pool_dll_code* memoryPoolCode, bool32 inheritsTransform, m4 inheritedMat)
 {
     spawned_obj_info newInfo;
     newInfo.modelTransform = startTrans;
-    newInfo.modelMatrix = CreateModelMatrix(startTrans.scale, startTrans.rotation, startTrans.location);
+    m4 localMat = CreateModelMatrix(startTrans.scale, startTrans.rotation, startTrans.location);
+    newInfo.inheritsTransform = inheritsTransform;
+    if (newInfo.inheritsTransform)
+    {
+	newInfo.modelMatrix = localMat * inheritedMat;
+	newInfo.localMatrix = localMat;
+    }
+    else
+    {
+	newInfo.modelMatrix = localMat;
+    }
     newInfo.type = type;
 
     listed_memory_node* node = memoryPoolCode->AddListedItem(loadedObjs->spawnedObjMemory,

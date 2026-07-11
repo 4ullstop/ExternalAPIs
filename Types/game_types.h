@@ -40,7 +40,7 @@ struct game_controller_input
     
     union
     {
-	game_button_state buttons[8];
+	game_button_state buttons[15];
 	struct
 	{
 	    game_button_state moveForward;
@@ -51,6 +51,16 @@ struct game_controller_input
 	    game_button_state moveDown;
 	    
 	    game_button_state testKey;
+
+	    game_button_state one;
+	    game_button_state two;
+	    game_button_state three;
+	    game_button_state four;
+	    game_button_state five;
+	    game_button_state six;
+	    game_button_state seven;
+	    
+	    
 
 	    game_button_state terminator;
 	};
@@ -78,6 +88,7 @@ enum spawnable_obj_type : i32
 {
 //    sot_ico = 0,
     sot_boat = 0,
+	sot_mast = 1,
 };
 
 struct transform
@@ -92,6 +103,8 @@ struct spawned_obj_info
     spawnable_obj_type type;
     transform modelTransform;
     m4 modelMatrix;
+    m4 localMatrix;
+    bool32 inheritsTransform;
 };
 
 //OBJS loaded in the game that can be spawned

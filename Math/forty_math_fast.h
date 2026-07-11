@@ -2883,7 +2883,7 @@ QuaternionSlerpV(v4 q0, v4 q1, v4 t)
 #elif defined(ARM)
 
 #elif defined(SSE)
-    v4 oneMinusEpsilon = {1.0f - 0.00001f, 1.0f - 0.00001f, 1.0f - 0.00001f, 1.0f - 0.00001f};
+    v4 oneMinusEpsilon = {1.0f - 0.000001f, 1.0f - 0.000001f, 1.0f - 0.000001f, 1.0f - 0.000001f};
     v4u32 signMask2 = {0x80000000, 0x00000000, 0x00000000, 0x00000000};
 
     v4 cosOmega = QuaternionDot(q0, q1);
@@ -2908,12 +2908,13 @@ QuaternionSlerpV(v4 q0, v4 q1, v4 t)
     v01.smv = _mm_xor_ps(v01.smv, signMask2.smv);
     v01.smv = _mm_add_ps(FM_IDENTITY_R0.smv, v01.smv);
     
-    v4 s0 = {};
-    s0.smv = _mm_mul_ps(v01.smv, omega.smv);
-    s0 = VectorSin(s0);
-    s0.smv = _mm_div_ps(s0.smv, sinOmega.smv);
-    
-    s0 = VectorSelect(v01, s0, control);
+    v4 s0_slerp = {};
+    s0_slerp.smv = _mm_mul_ps(v01.smv, omega.smv);
+    s0_slerp = VectorSin(s0_slerp);
+    s0_slerp.smv = _mm_div_ps(s0_slerp.smv, sinOmega.smv);
+
+    v4 s0_lerp = v01;
+    v4 s0 = VectorSelect(s0_lerp, s0_slerp, control);
 
     v4 s1 = SplatY(s0);
     s0 = SplatX(s0);
@@ -2985,22 +2986,22 @@ BuildTranslationMatrix(r32 x, r32 y, r32 z)
     m.e[0][0] = 1.0f;
     m.e[0][1] = 0.0f;
     m.e[0][2] = 0.0f;
-    m.e[0][0] = 0.0f;
+    m.e[0][3] = 0.0f;
 
     m.e[1][0] = 0.0f;
     m.e[1][1] = 1.0f;
     m.e[1][2] = 0.0f;
-    m.e[1][0] = 0.0f;
+    m.e[1][3] = 0.0f;
 
     m.e[2][0] = 0.0f;
     m.e[2][1] = 0.0f;
     m.e[2][2] = 1.0f;
-    m.e[2][0] = 0.0f;
+    m.e[2][3] = 0.0f;
 
     m.e[3][0] = x;
     m.e[3][1] = y;
     m.e[3][2] = z;
-    m.e[3][0] = 1.0f;
+    m.e[3][3] = 1.0f;
 
 
     return(m);
@@ -3097,8 +3098,13 @@ CreateModelMatrix(v4 scale, v4 rot, v4 trans)
     v4 normalizedRot = QuaternionNormalize(rot);
     m4 rotM = MatrixRotationQuaternion(normalizedRot);
     m4 translationM = BuildTranslationMatrix(trans);
-    
+
+#if 0
     m4 result = translationM * rotM * scaleM;
+#else
+    m4 result = (scaleM * rotM) * translationM;
+#endif    
+    
     return(result);
 }
 
