@@ -1,10 +1,11 @@
 #include "obj_loader.h"
-#include "../../FileReader/file_reader.cpp"
+#include "../../FileReader/file_reader.cpp" 
 #include <stdio.h>
 #include <stdlib.h>
 #include "../../MemoryPools/code/memory_pool_dll_include.h"
 #include <libloaderapi.h>
 #include "../../Types/intrinsics.h"
+#include "parser_shared.cpp"
 
 #define RUN_PERFORMANCE_TIMER 1
 
@@ -59,6 +60,7 @@ enum data_format
     e_face = 102,
     e_vertex = 118,
     e_vertex_normal = 228,
+    e_mat = 232,
     e_vertex_texture_coords = 234,
 };
 
@@ -83,99 +85,12 @@ Win32GetSecondsElapsed(LARGE_INTEGER start, LARGE_INTEGER end)
     return(result);
 }
 
-
-struct find_string_value_data
-{
-    char* newString;
-    i32 stringLength;
-
-    i32 i;
-    i32 start;
-};
-
-void FindNextValueStr(char* rowString, memory_arena* objArena, find_string_value_data* stringData, memory_pool_dll_code* memoryPoolCode)
-{
-    stringData->newString = 0;
-    while(rowString[++stringData->i] != ' ')
-    {
-	if (rowString[stringData->i] == NULL)
-	{
-	    break;
-	}
-    }
-
-    stringData->stringLength = stringData->i - stringData->start;
-
-    stringData->newString = (char*)memoryPoolCode->PushArraySized(objArena, sizeof(char*) * stringData->stringLength);
-
-    for (i32 k = stringData->start, f = 0; k < stringData->i; k++)
-    {
-	if (rowString[k] != ' ')
-	{
-	    stringData->newString[f] = rowString[k];
-	    f++;
-	}
-    }
-}
-
-i32 DetermineDataFormat(char* string)
-{
-    i32 result = (i32)string[0];
-    if (!(string[1] == ' '))
-    {
-	result += (i32)string[1];
-    }
-    return(result);
-}
-
-void ParseFloatMembers(char* rowString, memory_arena* objArena, r32* storageArray, i32* storageIndex, i32 itemsPerRow, memory_pool_dll_code* memoryPoolCode)
-{
-    find_string_value_data stringData = {};
-    stringData.i = 2;
-    stringData.start = stringData.i;
-    for (i32 i = 0; i < itemsPerRow; i++)
-    {
-	FindNextValueStr(rowString, objArena, &stringData, memoryPoolCode);
-	r32 convertedFloatValue = (r32)atof(stringData.newString);
-	storageArray[(*storageIndex)++] = convertedFloatValue;
-	stringData.start = stringData.i;
-    }
-}
-
-i32 FindIntFromFaceValue(i32* startLocation, char* stringValue)
-{
-    i32 i = 0, place = 1, j = 0, result = 0;
-
-    while (stringValue[++i] != '/')
-    {
-	if (stringValue[i] == NULL)
-	{
-	    break;
-	}
-	place *= 10;
-    }
-
-    while (stringValue[j] != '/')
-    {
-	if (stringValue[j] == NULL)
-	{
-	    break;
-	}
-	i32 intVal = stringValue[j] - '0';
-	intVal *= place;
-	result += intVal;
-	place /= 10;
-	j++;
-    }
-    *startLocation = *startLocation + (j + 1);
-    return(result);
-}
-
-void ParseFaceValues(char* rowString, memory_arena* objArena, obj* result, i32 itemsPerRow, memory_pool_dll_code* memoryPoolCode)
+void ParseFaceValues(char* rowString, memory_arena* objArena, obj* result, i32 itemsPerRow, memory_pool_dll_code* memoryPoolCode, i32 materialIndex, i32* currentFace)
 {
     find_string_value_data blockString = {};
     blockString.i = 2;
     blockString.start = blockString.i;
+    
     for (i32 i = 0; i < itemsPerRow; i++)
     {
 	FindNextValueStr(rowString, objArena, &blockString, memoryPoolCode);
@@ -189,6 +104,13 @@ void ParseFaceValues(char* rowString, memory_arena* objArena, obj* result, i32 i
 	i32 integer = FindIntFromFaceValue(&newStartLocation, &blockString.newString[newStartLocation]);
 	result->vertexIndices[storageIndex] = (u16)integer;
 
+	result->faces[*currentFace].e[i] = integer;
+	if (result->hasMaterials)
+	{
+	    Assert(itemsPerRow < 4); //did you triangulate the mesh?
+	    result->facesToMaterialIndices[*currentFace] = materialIndex;
+	}
+	
 	integer = FindIntFromFaceValue(&newStartLocation, &blockString.newString[newStartLocation]);
 	result->vertexTextureCoordIndices[storageIndex] = (u16)integer;
 
@@ -199,7 +121,32 @@ void ParseFaceValues(char* rowString, memory_arena* objArena, obj* result, i32 i
 
 	blockString.start = blockString.i;
     }
+    *currentFace = *currentFace + 1;
 }
+
+internal char*
+CopyMatName(char* name, memory_arena* tempArena, memory_pool_dll_code* memoryPoolCode)
+{
+    i32 i = 0;
+
+    while (name[i] != '\0')
+    {
+	i++;
+    }
+    char* result = (char*)memoryPoolCode->PushArraySized(tempArena, (sizeof(char) * i));
+    
+    for (i32 k = 0; k < i; k++)
+    {
+	result[k] = name[k];
+    }
+
+    return(result);
+}
+
+struct face_per_material_t_data
+{
+    i32 facesPerMaterial;
+};
 
 obj* ParseOBJData(char* fileLocation, memory_arena* tempArena, memory_arena* staticArena, program_memory* mainProgramMemory, memory_pool_dll_code* memoryPoolCode)
 {
@@ -277,6 +224,18 @@ obj* ParseOBJData(char* fileLocation, memory_arena* tempArena, memory_arena* sta
     //Determine the amount of verts, faces, normals etc... for allocation purposes
 
     //I don't like this but I'm too lazy to figure out a better solution atm
+
+    //Create a linked list here to determine the material names and faces that exist with each other
+    //Then use this list in the main while loop to determine the amount of v4I to allocate
+
+
+
+    i32 numOfMaterials = 0;
+    bool32 ontoMat = false;
+    i32 facePerMaterial = 0;
+    bool32 initList = false;
+    listed_memory* facePerMaterialList = 0;
+    listed_memory_node* facePerMaterialNodes = 0;
     while (parsee[++i] != NULL)
     {
 	if (parsee[i] == '\n')
@@ -301,14 +260,36 @@ obj* ParseOBJData(char* fileLocation, memory_arena* tempArena, memory_arena* sta
 	    {
 		result->vertexTextureCoordCount++;
 	    } break;
+	    case e_mat:
+	    {
+		numOfMaterials++;
+		if (!ontoMat)
+		{
+		    ontoMat = true;
+		}
+		else
+		{
+		    //do stuffs w/listed materials
+		    facePerMaterial = 0;
+		}
+	    };
 	    default:
 	    {
 		
 	    } break;
 	    }
+	    if (ontoMat)
+	    {
+		facePerMaterial++;
+	    }
 	}
+	
     }
 
+    if (numOfMaterials > 0)
+    {
+	result->hasMaterials = true;
+    }
     i = 0;
 
 
@@ -318,6 +299,17 @@ obj* ParseOBJData(char* fileLocation, memory_arena* tempArena, memory_arena* sta
     result->vertexTextureCoordinates = (r32*)memoryPoolCode->PushArraySized(tempArena, (sizeof(r32) * result->vertexTextureCoordCount) * 2);
     result->face = (i32*)memoryPoolCode->PushArraySized(tempArena, (sizeof(i32) * result->faceCount) * 3);    
 
+    result->facesToMaterialIndices = (i32*)memoryPoolCode->PushArraySized(tempArena, (sizeof(i32) * result->faceCount));
+    result->faces = (v4I*)memoryPoolCode->PushArraySized(tempArena, (sizeof(v4I) * result->faceCount));
+    if (numOfMaterials > 0)
+    {
+	result->materialNames = (char**)memoryPoolCode->PushArraySized(tempArena, (sizeof(char*) * numOfMaterials));
+    }
+    i32 materialIndex = -1;
+
+
+
+    i32 currentFace = 0;
     bool32 faceMemoryInitialized = false;
     while (parsee[i] != NULL)
     {
@@ -383,7 +375,9 @@ obj* ParseOBJData(char* fileLocation, memory_arena* tempArena, memory_arena* sta
 				tempArena,
 				result,
 				itemsPerRow,
-				memoryPoolCode);
+				memoryPoolCode,
+				materialIndex,
+				&currentFace);
 	    } break;
 	    case e_vertex:
 	    {
@@ -403,6 +397,23 @@ obj* ParseOBJData(char* fileLocation, memory_arena* tempArena, memory_arena* sta
 				  itemsPerRow,
 				  memoryPoolCode);
 	    } break;
+
+	    case e_mat:
+	    {
+		find_string_value_data blockString = {};
+		blockString.i = 6;
+		blockString.start = blockString.i;
+		FindNextValueStr(rowData, tempArena, &blockString, memoryPoolCode);
+		//Find the material in the material format after getting it's name
+		//Count faces for material?
+		materialIndex++;
+
+		result->materialNames[materialIndex] = CopyMatName(blockString.newString,
+								     tempArena,
+								     memoryPoolCode);
+
+	    } break;
+
 	    case e_vertex_texture_coords:
 	    {
 		ParseFloatMembers(rowData,

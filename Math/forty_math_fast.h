@@ -9,6 +9,9 @@
  */
 
 
+#define Min(a, b) ((a < b) ? (a) : (b))
+#define Max(a, b) ((a > b) ? (a) : (b))
+
 #if 0
 struct v2
 {
@@ -95,6 +98,7 @@ struct alignas(16) v4I
 	};
 	i32 e[4];
 	__m128 smv;
+	__m128i iSmv;
     };
 };
 
@@ -108,6 +112,7 @@ struct alignas(16) v4u32
 	};
 	u32 e[4];
 	__m128 smv;
+	__m128i iSmv;
     };
 };
 
@@ -126,6 +131,7 @@ struct alignas(16) v4
 	};
 	r32 e[4];
 	__m128 smv;
+	__m128i iSmv;
     };
     inline v4 &operator*=(v4 a);
     inline v4 &operator+=(v4 a);
@@ -194,6 +200,26 @@ global_variable v4 FM_TAN_COEFFICIENTS_1  = {2.186948854e-2f, 8.863235530e-3f, 3
 global_variable v4 FM_ATAN_COEFFICIENTS_0 = {-0.3333314528f, +0.1999355085f, -0.1420889944f, +0.1065626393f};
 global_variable v4 FM_ATAN_COEFFICIENTS_1 = { { { -0.0752896400f, +0.0429096138f, -0.0161657367f, +0.0028662257f } } };
 
+global_variable v4 FM_EXP_EST_1 = {-6.93147182e-1f, -6.93147182e-1f, -6.93147182e-1f, -6.93147182e-1f};
+global_variable v4 FM_EXP_EST_2 = {+2.40226462e-1f, +2.40226462e-1f, +2.40226462e-1f, +2.40226462e-1f};
+global_variable v4 FM_EXP_EST_3 = {-5.55036440e-2f, -5.55036440e-2f, -5.55036440e-2f, -5.55036440e-2f};
+global_variable v4 FM_EXP_EST_4 = {+9.61597636e-3f, +9.61597636e-3f, +9.61597636e-3f, +9.61597636e-3f};
+global_variable v4 FM_EXP_EST_5 = {-1.32823968e-3f, -1.32823968e-3f, -1.32823968e-3f, -1.32823968e-3f};
+global_variable v4 FM_EXP_EST_6 = {+1.47491097e-4f, +1.47491097e-4f, +1.47491097e-4f, +1.47491097e-4f};
+global_variable v4 FM_EXP_EST_7 = {-1.08635004e-5f, -1.08635004e-5f, -1.08635004e-5f, -1.08635004e-5f};
+
+global_variable v4I FM_EXPONENT_BIAS = {127, 127, 127, 127};
+
+global_variable v4I FM_253 = {253, 253, 253, 253};
+
+global_variable v4I FM_MIN_NORMAL = {0x00800000, 0x00800000, 0x00800000, 0x00800000};
+global_variable v4I FM_BIN_128 = {0x43000000, 0x43000000, 0x43000000, 0x43000000};
+
+global_variable v4I FM_SUBNORMAL_EXPONENT = {-126, -126, -126, -126};
+global_variable v4u32 FM_BINNEG_150 = {0xC3160000, 0xC3160000, 0xC3160000, 0xC3160000};
+
+global_variable v4I FM_QNAN_TEST = {0x007FFFFF, 0x007FFFFF, 0x007FFFFF, 0x007FFFFF};
+
 global_variable u32 FM_PERMUTE_0X = 0;
 global_variable u32 FM_PERMUTE_0Y = 1;
 global_variable u32 FM_PERMUTE_0Z = 2;
@@ -212,10 +238,13 @@ r32 ToRad(r32 deg) { return deg * (FM_PI / 180.0f); }
 inline v4u32 FCALL
 VectorPermute(v4 a, v4 b, u32 permuteX, u32 permuteY, u32 permuteZ, u32 permuteW)
 {
+    u32 ta = 0;
+    u32 tb = 0;
+    
     u32* aPtr[2];
-    aPtr[0] = (u32*)&a;
-    aPtr[1] = (u32*)&b;
-
+    aPtr[0] = &ta;
+    aPtr[1] = &tb;
+    
     v4u32 result;
     u32 i0 = permuteX & 3;
     u32 vi0 = permuteX >> 2;
@@ -448,6 +477,7 @@ DotV4(v4 a, v4 b)
 (((V2.vector4_f32[2] * V3.vector4_f32[1]) - (V2.vector4_f32[1] * V3.vector4_f32[2])) * V1.vector4_f32[0]) - (((V2.vector4_f32[2] * V3.vector4_f32[0]) - (V2.vector4_f32[0] * V3.vector4_f32[2])) * V1.vector4_f32[1]) + (((V2.vector4_f32[1] * V3.vector4_f32[0]) - (V2.vector4_f32[0] * V3.vector4_f32[1])) * V1.vector4_f32[2]),
 */
 
+
 inline v4 FCALL
 Cross(v4 a, v4 b, v4 c)
 {
@@ -589,7 +619,37 @@ VecLen(v4 a)
 inline v4 FCALL
 VecLenV3(v4 a)
 {
+#if NO_INTRINSICS
+    
+#elif defined(ARM)
 
+#elif defined(SSE)
+#if defined(SSE_4)
+    v4 temp = {};
+    temp.smv = _mm_dp_ps(a.smv, a.smv, 0x7f);
+    temp.smv = _mm_sqrt_ps(temp.smv);
+    return(temp);
+#elif defined(SSE_3)
+    v4 vLenSq = {};
+    vLenSq.smv = _mm_mul_ps(a.smv, a.smv);
+    vLenSq.smv = _mm_and_ps(vLenSq.smv, FM_MASK_3.smv);
+    vLenSq.smv = _mm_hadd_ps(vLenSq.smv, vLenSq.smv);
+    vLenSq.smv = _mm_hadd_ps(vLenSq.smv, vLenSq.smv);
+    vLenSq.smv = _mm_sqrt_ps(vLenSq.smv);
+    return(vLenSq);
+#elif defined(SSE_2) || defined(SSE_1)
+    v4 vLenSq = {};
+    vLenSq.smv = _mm_mul_ps(a.smv, a.smv);
+    v4 temp = {};
+    temp.smv = FM_PERMUTE_PS(vLenSq.smv, _MM_SHUFFLE(1, 2, 1, 2));
+    vLenSq.smv = _mm_add_ss(vLenSq.smv, temp.smv);
+    temp.smv = FM_PERMUTE_PS(temp.smv, _MM_SHUFFLE(1, 1, 1, 1));
+    vLenSq.smv = _mm_add_ss(vLenSq.smv, temp.smv);
+    vLenSq.smv = FM_PERMUTE_PS(vLenSq.smv, _MM_SHUFFLE(0, 0, 0, 0));
+    vLenSq.smv = _mm_sqrt_ps(vLenSq.smv);
+    return(vLenSq);
+#endif    
+#endif    
 }
 
 inline v4 FCALL
@@ -711,6 +771,23 @@ CrossV3(v4 a, v4 b)
     result.smv = _mm_and_ps(result.smv, FM_MASK_3.smv);
     return(result);
     
+#endif    
+}
+
+inline v4 FCALL
+VectorLerp(v4 a, v4 b, v4 t)
+{
+#if NO_INTRINSICS
+    v4 length = b - a;
+    v4 result = VectorMultiplyAdd(length, t, a);
+#elif defined(ARM)
+
+#elif defined(SSE)
+    v4 len = {};
+    len.smv = _mm_sub_ps(b.smv, a.smv);
+    v4 result = {};
+    result.smv = FM_FMADD_PS(len.smv, t.smv, a.smv);
+    return(result);
 #endif    
 }
 
@@ -1342,7 +1419,46 @@ VectorATan(v4 v)
     return(result);
 #endif    
 }
- 
+
+inline v4 FCALL
+Vector4Length(v4 v)
+{
+#if NO_INTRINSICS
+
+#elif defined(ARM)
+
+#elif defined(SSE)
+
+#if defined(SSE_4)
+    m128 temp = _mm_dp_ps(v.smv, v.smv, 0xff);
+    v4 result = {};
+    result.smv = _mm_sqrt_ps(temp);
+    return(result);
+#elif defined(SSE_3)
+    m128 lenSq = _mm_mul_ps(v.smv, v.smv);
+    lenSq = _mm_hadd_ps(lenSq, lenSq);
+    lenSq = _mm_hadd_ps(lenSq, lenSq);
+    lenSq = _mm_sqrt_ps(lenSq);
+    v4 result = {};
+    result.smv = lenSq;
+    return(result);
+#elif defined(SSE_2) || defined(SSE_1)
+    m128 lenSq = _mm_mul_ps(v.smv, v.smv);
+    m128 temp = FM_PERMUTE_PS(lenSq, _MM_SHUFFLE(3, 2, 3, 2));
+    lenSq = _mm_add_ps(lenSq, temp);
+    lenSq = FM_PERMUTE_PS(lenSq, _MM_SHUFFLE(1, 0, 0, 0));
+    temp = _mm_shuffle_ps(temp, lenSq, _MM_SHUFFLE(3, 3, 0, 0));
+    lenSq = _mm_add_ps(lenSq, temp);
+    lenSq = FM_PERMUTE_PS(lenSq, _MM_SHUFFLE(2, 2, 2, 2));
+    lenSq = _mm_sqrt_ps(lenSq);
+    v4 result = {};
+    result.smv = lenSq;
+    return(result);
+#endif    
+    
+#endif    
+}
+
 inline v4 FCALL
 VectorATan2(v4 y, v4 x)
 {
@@ -1683,6 +1799,91 @@ inline v4 Lerp(v4 a, v4 b, r32 t)
 #endif    
 }
 
+inline v4 FCALL
+VectorExp(v4 v)
+{
+#if NO_INTRINSICS    
+    v4 result =
+    {
+	exp2f(v.e[0]),
+	exp2f(v.e[1]),
+	exp2f(v.e[2]),
+	exp2f(v.e[3]),	
+    };
+    return(result);
+
+#elif defined(ARM)
+
+#elif defined(SSE)
+    __m128i itrunc = _mm_cvttps_epi32(v.smv);
+    m128 ftrunc = _mm_cvtepi32_ps(itrunc);
+    m128 y = _mm_sub_ps(v.smv, ftrunc);
+
+    m128 poly = FM_FMADD_PS(FM_EXP_EST_7.smv, y, FM_EXP_EST_6.smv);
+    poly = FM_FMADD_PS(poly, y, FM_EXP_EST_5.smv);
+    poly = FM_FMADD_PS(poly, y, FM_EXP_EST_4.smv); 
+    poly = FM_FMADD_PS(poly, y, FM_EXP_EST_3.smv);
+    poly = FM_FMADD_PS(poly, y, FM_EXP_EST_2.smv);
+    poly = FM_FMADD_PS(poly, y, FM_EXP_EST_1.smv);
+    poly = FM_FMADD_PS(poly, y, FM_ONE.smv);    
+
+    __m128i biased = _mm_add_epi32(itrunc, FM_EXPONENT_BIAS.iSmv);
+    biased = _mm_slli_epi32(biased, 23);
+    m128 result0 = _mm_div_ps(_mm_castsi128_ps(biased), poly);
+
+    biased = _mm_add_epi32(itrunc, FM_253.iSmv);
+    biased = _mm_slli_epi32(biased, 23);
+    m128 result1 = _mm_mul_ps(FM_MIN_NORMAL.smv, result1);
+    // Use selection to handle the cases
+    //  if (V is NaN) -> QNaN;
+    //  else if (V sign bit set)
+    //      if (V > -150)
+    //         if (V.exponent < -126) -> result1
+    //         else -> result0
+    //      else -> +0
+    //  else
+    //      if (V < 128) -> result0
+    //      else -> +inf
+
+    __m128i comp = _mm_cmplt_epi32(_mm_castps_si128(v.smv), FM_BIN_128.iSmv);
+    __m128i select0 = _mm_and_si128(comp, _mm_castps_si128(result0));
+    __m128i select1 = _mm_andnot_si128(comp, FM_INF.iSmv);
+    __m128i result2 = _mm_or_si128(select0, select1);
+
+    comp = _mm_cmplt_epi32(itrunc, FM_SUBNORMAL_EXPONENT.iSmv);
+    select1 = _mm_and_si128(comp, _mm_castps_si128(result1));
+    select0 = _mm_andnot_si128(comp, _mm_castps_si128(result0));
+    __m128i result3 = _mm_or_si128(select0, select1);
+
+    comp = _mm_cmplt_epi32(_mm_castps_si128(v.smv), FM_BINNEG_150.iSmv);
+    select0 = _mm_and_si128(comp, result3);
+    select1 = _mm_andnot_si128(comp, FM_ZERO.iSmv);
+    __m128i result4 = _mm_or_si128(select0, select1);
+
+    __m128i sign = _mm_and_si128(_mm_castps_si128(v.smv), FM_NEGATIVE_ZERO.iSmv);
+    comp = _mm_cmpeq_epi32(sign, FM_NEGATIVE_ZERO.iSmv);
+    select0 = _mm_and_si128(comp, result4);
+    select1 = _mm_andnot_si128(comp, result2);
+    __m128i result5 = _mm_or_si128(select0, select1);
+
+    __m128i t0 = _mm_and_si128(_mm_castps_si128(v.smv), FM_QNAN_TEST.iSmv);
+    __m128i t1 = _mm_and_si128(_mm_castps_si128(v.smv), FM_INF.iSmv);
+
+    t0 = _mm_cmpeq_epi32(t0, FM_ZERO.iSmv);
+    t1 = _mm_cmpeq_epi32(t1, FM_INF.iSmv);
+
+    __m128i isNaN = _mm_andnot_si128(t0, t1);
+
+    select0 = _mm_and_si128(isNaN, FM_QNaN.iSmv);
+    select1 = _mm_andnot_si128(isNaN, result5);
+    __m128i tResult = _mm_or_si128(select0, select1);
+
+    v4 result = {};
+    result.smv = _mm_castsi128_ps(tResult);
+    return(result);
+#endif
+}
+
 
 /*
 ****************************M4*******************************
@@ -1844,6 +2045,26 @@ operator*(m4 a, m4 b)
     result.smv[3] = vx.smv;
 
     return(result);
+#endif    
+}
+
+inline v4 FCALL
+Vector3Transform(v4 v, m4 m)
+{
+#if NO_INTRINSICS
+    
+#elif defined(ARM)
+
+#elif defined(SSE)
+    m128 mResult = FM_PERMUTE_PS(v.smv, _MM_SHUFFLE(2, 2, 2, 2));
+    mResult = FM_FMADD_PS(mResult, m.r[2].smv, m.r[3].smv);
+    m128 temp = FM_PERMUTE_PS(v.smv, _MM_SHUFFLE(1, 1, 1, 1));
+    mResult = FM_FMADD_PS(temp, m.r[1].smv, mResult);
+    temp = FM_PERMUTE_PS(v.smv, _MM_SHUFFLE(0, 0, 0, 0));
+    mResult = FM_FMADD_PS(temp, m.r[0].smv, mResult);
+    v4 vResult = {};
+    vResult.smv = mResult;
+    return(vResult);
 #endif    
 }
 
@@ -2718,7 +2939,71 @@ inline v4 FCALL QuaternionRotationMatrix(m4 m)
 #elif defined(ARM)
 
 #elif defined(SSE)
+#if 1
+    v4 XMPMMP = {+1.0f, -1.0f, -1.0f, +1.0f};
+    v4 XMMPMP = {-1.0f, +1.0f, -1.0f, +1.0f};
+    v4 XMMMPP = {-1.0f, -1.0f, +1.0f, +1.0f};
 
+    m128 r0 = m.r[0].smv;
+    m128 r1 = m.r[1].smv;
+    m128 r2 = m.r[2].smv;
+
+    m128 r00 = FM_PERMUTE_PS(r0, _MM_SHUFFLE(0, 0, 0, 0));
+    m128 r11 = FM_PERMUTE_PS(r1, _MM_SHUFFLE(1, 1, 1, 1));
+    m128 r22 = FM_PERMUTE_PS(r2, _MM_SHUFFLE(2, 2, 2, 2));
+
+    m128 r11mr00 = _mm_sub_ps(r11, r00);
+    m128 x2gey2 = _mm_cmple_ps(r11mr00, FM_ZERO.smv);
+
+    m128 r11pr00 = _mm_add_ps(r11, r00);
+    m128 z2gew2 = _mm_cmple_ps(r11pr00, FM_ZERO.smv);
+
+    m128 x2py2gez2pw2 = _mm_cmple_ps(r22, FM_ZERO.smv);
+
+    m128 t0 = FM_FMADD_PS(XMPMMP.smv, r00, FM_ONE.smv);
+    m128 t1 = _mm_mul_ps(XMMPMP.smv, r11);
+    m128 t2 = FM_FMADD_PS(XMMMPP.smv, r22, t0);
+    m128 x2y2z2w2 = _mm_add_ps(t1, t2);
+
+    t0 = _mm_shuffle_ps(r0, r1, _MM_SHUFFLE(1, 2, 2, 1));
+    t1 = _mm_shuffle_ps(r1, r2, _MM_SHUFFLE(1, 0, 0, 0));
+    t1 = FM_PERMUTE_PS(t1, _MM_SHUFFLE(1, 3, 2, 0));
+    m128 xyxzyz = _mm_add_ps(t0, t1);
+
+    t0 = _mm_shuffle_ps(r2, r1, _MM_SHUFFLE(0, 0, 0, 1));
+    t1 = _mm_shuffle_ps(r1, r0, _MM_SHUFFLE(1, 2, 2, 2));
+    t1 = FM_PERMUTE_PS(t1, _MM_SHUFFLE(1, 3, 2, 0));
+    m128 xwywzw = _mm_sub_ps(t0, t1);
+    xwywzw = _mm_mul_ps(XMMPMP.smv, xwywzw);
+
+    t0 = _mm_shuffle_ps(x2y2z2w2, xyxzyz, _MM_SHUFFLE(0, 0, 1, 0));
+    t1 = _mm_shuffle_ps(x2y2z2w2, xwywzw, _MM_SHUFFLE(0, 2, 3, 2));
+    t2 = _mm_shuffle_ps(xyxzyz, xwywzw, _MM_SHUFFLE(1, 0, 2, 1));
+
+    m128 tensor0 = _mm_shuffle_ps(t0, t2, _MM_SHUFFLE(2, 0, 2, 0));
+    m128 tensor1 = _mm_shuffle_ps(t0, t2, _MM_SHUFFLE(3, 1, 1, 2));
+    m128 tensor2 = _mm_shuffle_ps(t2, t1, _MM_SHUFFLE(2, 0, 1, 0));
+    m128 tensor3 = _mm_shuffle_ps(t2, t1, _MM_SHUFFLE(1, 2, 3, 2));
+
+    t0 = _mm_and_ps(x2gey2, tensor0);
+    t1 = _mm_andnot_ps(x2gey2, tensor1);
+    t0 = _mm_or_ps(t0, t1);
+    t1 = _mm_and_ps(z2gew2, tensor2);
+    t2 = _mm_andnot_ps(z2gew2, tensor3);
+    t1 = _mm_or_ps(t1, t2);
+    t0 = _mm_and_ps(x2py2gez2pw2, t0);
+    t1 = _mm_andnot_ps(x2py2gez2pw2, t1);
+    t2 = _mm_or_ps(t0, t1);
+
+
+    v4 tempT2 = {};
+    tempT2.smv = t2;
+    v4 tempT0 = {};
+    tempT0 = Vector4Length(tempT2);
+    v4 result = {};
+    result.smv = _mm_div_ps(t2, tempT0.smv);
+    return(result);
+#else
 // DirectXMath SSE implementation strategy uses sign control arrays to find the trace
     m128 r0 = m.r[0].smv;
     m128 r1 = m.r[1].smv;
@@ -2784,10 +3069,13 @@ inline v4 FCALL QuaternionRotationMatrix(m4 m)
 
     // Normalize precisely via square root 
     m128 length = _mm_sqrt_ps(lengthSqr);
+    m128 doubledResult = _mm_div_ps(t2, length);
+    
+    
     v4 result;
-    result.smv = _mm_div_ps(t2, length);
+    result.smv = _mm_mul_ps(doubledResult, _mm_set1_ps(0.5f));
     return(result);
-
+#endif
 #endif    
 }
 
@@ -3082,6 +3370,32 @@ QuaternionFromEuler(r32 pitch, r32 yaw, r32 roll)
     return(QuaternionFromEuler(v));
 }
 
+//this isn't sim'd
+inline v4 FCALL
+EulerFromQuaternion(v4 q)
+{
+    v4 result = {};
+    r32 sinP = 2.0f * (q.w * q.x + q.y * q.z);
+    r32 cosP = 1.0f - 2.0f * (q.x * q.x + q.y * q.y);
+    result.x = atan2f(sinP, cosP);
+
+    r32 sinY = 2.0f * (q.w * q.y - q.z * q.x);
+    if (fabs(sinY) >= 1.0f)
+    {
+	result.y = (r32)copysign(FM_PIDIV2, sinY);
+    }
+    else
+    {
+	result.y = asinf(sinY);
+    }
+
+    r32 sinR = 2.0f * (q.w * q.z + q.x * q.y);
+    r32 cosR = 1.0f - 2.0f * (q.y * q.y + q.z * q.z);
+    result.z = atan2f(sinR, cosR);
+    result.w = 0.0f;
+    return(result);
+}
+
 inline m4 FCALL
 BuildTranslationMatrix(v4 v)
 {
@@ -3108,6 +3422,47 @@ CreateModelMatrix(v4 scale, v4 rot, v4 trans)
     return(result);
 }
 
+inline v4 FCALL
+CreateQuaternionRotationFromVector(v4 forward, v4 up)
+{
+    v4 f = NormalizeV3(forward);
+
+    v4 tenU = NormalizeV3(up);
+    
+    v4 r = NormalizeV3(CrossV3(f, tenU));
+    v4 u = CrossV3(r, f);
+    
+    //VecLenV3 is not defined, plz define it
+//    v4 mUCF = VecLenV3(uCf);
+//    v4 r = uCf / mUCF;
+    m4 lookAt = LookToLH(FM_ZERO, f, u);
+    m4 rotMat = Transpose(lookAt);
+    v4 result = QuaternionRotationMatrix(rotMat);
+
+
+    return(result);
+}
+
+inline v4 FCALL
+CreateQuaternionRotationFromVector(v4 forward)
+{
+    v4 up = v4{0.0f, 1.0f, 0.0f, 0.0f};
+    return(CreateQuaternionRotationFromVector(forward, up));
+}
+
+//At some point convert to SIMD
+inline r32 FCALL
+DotProductToDegrees(r32 dotProduct, r32 lengthA, r32 lengthB)
+{
+    r32 cosTheta = dotProduct / (lengthA * lengthB);
+
+    cosTheta = Max(-1.0f, Min(cosTheta, -1.0f));
+
+    r32 angleRadians = (r32)acos(cosTheta);
+
+    r32 result = (r32)RAD2DEG(angleRadians);
+    return(result);
+}
 
 #define FORTY_MATH_FAST_H
 #endif

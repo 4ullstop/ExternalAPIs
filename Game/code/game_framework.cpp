@@ -1,5 +1,5 @@
 #include "game_framework.h"
-
+#include "../../OBJLoader/code/mtl_parser.cpp"
 void CreateViewAndPerspective(game_camera* camera)
 {
     //NOTE: Aspect ratio is not filled out and will need to be in the Win32 layer
@@ -81,10 +81,36 @@ void GameUpdateCamera(game_camera* camera)
 //This will be two separate actions, in the game framework all we care about is loading in
 //the files that are given to this function, the platform framework will have functions to
 //look into the directory
+internal char*
+CreateMTLFileName(char* objFileName, memory_arena* tempArena, memory_pool_dll_code* memoryPoolCode)
+{
+    i32 sizeOfFileName = 0;
+    while (objFileName[sizeOfFileName++] != '\0')
+    {
+	
+    }
+    char tempFileName[256];
+
+    for (i32 i = 0; i < sizeOfFileName - 1; i++)
+    {
+	tempFileName[i] = objFileName[i];
+    }
+    tempFileName[sizeOfFileName - 2] = 'l';
+    tempFileName[sizeOfFileName - 3] = 't';
+    tempFileName[sizeOfFileName - 4] = 'm';
+    char* result = (char*)memoryPoolCode->PushArraySized(tempArena, (sizeof(char) * sizeOfFileName - 1));
+    for (i32 i = 0; i < sizeOfFileName - 1; i++)
+    {
+	result[i] = tempFileName[i];
+    }
+    return(result);
+}
+
 game_loaded_objs LoadGameOBJFiles(parse_obj_data_code* parseObjCode, framework_arenas* arenas, program_memory* pgMem, memory_pool_dll_code* memoryPoolCode, char** fileLocation, i32 num)
 {
     game_loaded_objs result = {};
 
+    //search for mtl file first!
     result.objFileNum = num;
 
     result.staticLoadedObjs = (obj*)memoryPoolCode->PushArraySized(arenas->setupArena, (sizeof(obj) * result.objFileNum));
@@ -97,6 +123,13 @@ game_loaded_objs LoadGameOBJFiles(parse_obj_data_code* parseObjCode, framework_a
     {
 	result.staticLoadedObjs[i] = *parseObjCode->ParseOBJData(fileLocation[i], arenas->perFrameArena, arenas->setupArena, pgMem, memoryPoolCode);
 	result.types[i] = (spawnable_obj_type)i;
+	char* mtlName = CreateMTLFileName(fileLocation[i], arenas->perFrameArena, memoryPoolCode);
+	result.staticLoadedObjs[i].materials = ParseMTLData(mtlName, &result.staticLoadedObjs[i].numOfMaterials, arenas->perFrameArena, arenas->setupArena, pgMem, memoryPoolCode);
+
+	if (result.staticLoadedObjs[i].materials == nullptr)
+	{
+	    result.staticLoadedObjs[i].hasMaterials = false;
+	}
     }
 
     result.spawnedObjMemory = (listed_memory*)memoryPoolCode->PushStruct(arenas->spawnedObjectArena, sizeof(listed_memory));

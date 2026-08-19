@@ -352,7 +352,7 @@ void AddToEndOfList(listed_memory* rec, void* data, size_t dataSize, listed_memo
     
     MemCpy(newNode->data, data, dataSize);
 
-    if (*recList == 0)
+    if (*recList == NULL)
     {
 	newNode->prev = 0;
 	*recList = newNode;

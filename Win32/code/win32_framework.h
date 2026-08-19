@@ -66,6 +66,13 @@ struct obj_conversion
     u16* indices;
     u32 objVertsSize;
     u32 indexCount;
+    u32* materialIndices;
+    u32 faceCount;
+    bool32 hasMaterials;
+
+    material_properties* materialProperties;
+
+    i32 numOfMaterials;
 };
 
 struct win32_game_code
@@ -99,6 +106,17 @@ struct draw_buffers
     ID3D11Buffer* indexBuffer;
     ID3D11Buffer* vertexBuffer;
     i32 indexCount;
+    
+    ID3D11Buffer* materialBuffer;
+    ID3D11ShaderResourceView* materialResourceView;
+
+    ID3D11Buffer* materialPropertiesBuffer;
+    ID3D11ShaderResourceView* materialPropertiesView;
+    i32 faceCount;
+
+    ID3D11Buffer* objectProperties;
+    ID3D11ShaderResourceView* objectPropertiesView;
+    u32 hasMaterials;
 };
 
 struct win32_spawnable_objs

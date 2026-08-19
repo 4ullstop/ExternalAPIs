@@ -313,6 +313,7 @@ void Win32ProcessPendingMessages(game_controller_input* keyboardController, game
 		{
 		    //running = false;
 		    //need to figure this out when time comes
+		    programState->running = false;
 		}
 	    }
 	} break;
@@ -329,7 +330,7 @@ void Win32ProcessPendingMessages(game_controller_input* keyboardController, game
 
 obj_conversion ConvertGameOBJToDXOBJ(obj* currObj, memory_arena* arena, memory_pool_dll_code* memoryPoolCode)
 {
-    obj_conversion result;
+    obj_conversion result = {};
 
     HRESULT hr = {};
 
@@ -339,7 +340,11 @@ obj_conversion ConvertGameOBJToDXOBJ(obj* currObj, memory_arena* arena, memory_p
 
     size_t indexSize = sizeof(u16) * currObj->faceLastIndex;
     result.indices = (u16*)memoryPoolCode->PushArraySized(arena, indexSize);
-
+    if (currObj->hasMaterials)
+    {
+	result.materialIndices = (u32*)memoryPoolCode->PushArraySized(arena, (sizeof(u32) * currObj->faceCount));
+    }
+    
     //When you get to it you will have to figure out how to load in textures
     v3 testColors[] =
     {
@@ -359,7 +364,8 @@ obj_conversion ConvertGameOBJToDXOBJ(obj* currObj, memory_arena* arena, memory_p
 	result.objVerts[j].pos.y = currObj->vertices[i + 2];
 	result.objVerts[j].pos.z = currObj->vertices[i + 1];
 
-	DirectX::XMFLOAT3 vertColor = {testColors[j].x, testColors[j].y, testColors[j].z};
+//	DirectX::XMFLOAT3 vertColor = {testColors[j].x, testColors[j].y, testColors[j].z};
+	DirectX::XMFLOAT3 vertColor = {1.0f, 0.0f, 1.0f};
 //	DirectX::XMFLOAT3 vertColor = {1.0f, 0.0f, 0.0f}; 
 	result.objVerts[j].color = vertColor;
     }
@@ -368,6 +374,31 @@ obj_conversion ConvertGameOBJToDXOBJ(obj* currObj, memory_arena* arena, memory_p
 	result.indices[i] = currObj->vertexIndices[i] - 1;
     }
     result.indexCount = currObj->faceLastIndex;
+
+    result.hasMaterials = currObj->hasMaterials;
+    if (currObj->hasMaterials)
+    {
+	for (i32 i = 0; i < currObj->faceCount; i++)
+	{
+	    result.materialIndices[i] = (u32)currObj->facesToMaterialIndices[i];
+	}
+	result.faceCount = currObj->faceCount;
+
+	size_t materialSize = sizeof(material_properties) * currObj->numOfMaterials;
+	
+	result.materialProperties = (material_properties*)memoryPoolCode->PushArraySized(arena, materialSize);
+
+	result.numOfMaterials = currObj->numOfMaterials;
+	DirectX::XMVECTOR tempCol = {};
+	for (i32 i = 0; i < currObj->numOfMaterials; i++)
+	{
+	    tempCol = DirectX::XMVectorSet(currObj->materials[i].diffuse.x,
+					   currObj->materials[i].diffuse.y,
+					   currObj->materials[i].diffuse.z,
+					   1.0f);
+	    DirectX::XMStoreFloat4(&result.materialProperties[i].matColor, tempCol);
+	}
+    }
     return(result);
 }
 
@@ -554,6 +585,61 @@ CreateBuffersFromOBJ(obj* objToInit, memory_arena* tempArena, ID3D11Device* d3dD
 	&result.indexBuffer);
 
     result.indexCount = convertedObj.indexCount;
+
+
+    if (convertedObj.hasMaterials)
+    {
+	
+
+	D3D11_BUFFER_DESC matDesc = {};
+	matDesc.Usage = D3D11_USAGE_IMMUTABLE;
+	matDesc.ByteWidth = sizeof(u32) * convertedObj.faceCount;
+	matDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	matDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+	matDesc.StructureByteStride = sizeof(u32);
+
+	//It might be worth allocating this automatically, and then filling with
+	//blank colors such that we can tell that a material is missing
+	D3D11_SUBRESOURCE_DATA initData = {};
+	initData.pSysMem = convertedObj.materialIndices;
+
+	
+	
+	DWORD lastError = {};
+
+	
+	hr = d3dDevice->CreateBuffer(&matDesc, &initData, &result.materialBuffer);
+
+	hr = d3dDevice->CreateShaderResourceView(result.materialBuffer, nullptr, &result.materialResourceView);
+
+	D3D11_BUFFER_DESC matAtDesc = {};
+	matAtDesc.Usage = D3D11_USAGE_DEFAULT;
+	matAtDesc.ByteWidth = sizeof(material_properties) * convertedObj.numOfMaterials;
+	matAtDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	matAtDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+	matAtDesc.StructureByteStride = sizeof(material_properties);
+
+	D3D11_SUBRESOURCE_DATA matInitData = {};
+	matInitData.pSysMem = convertedObj.materialProperties;
+
+	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Format = DXGI_FORMAT_UNKNOWN;
+	srvDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
+	srvDesc.Buffer.FirstElement = 0;
+	srvDesc.Buffer.NumElements = convertedObj.numOfMaterials;
+
+	hr = d3dDevice->CreateBuffer(&matAtDesc, &matInitData, &result.materialPropertiesBuffer);
+	hr = d3dDevice->CreateShaderResourceView(result.materialPropertiesBuffer, &srvDesc, &result.materialPropertiesView);
+	
+    }
+    else
+    {
+	result.materialBuffer = nullptr;
+	result.materialResourceView = nullptr;
+	    
+    }
+    result.faceCount = convertedObj.faceCount;
+    result.hasMaterials = convertedObj.hasMaterials;
     return(result);
 }
 
@@ -571,7 +657,7 @@ void Win32CreateSpawnableBuffers(game_loaded_objs* gameObjs, win32_spawnable_obj
 	Assert(win32DrawnBuffers);
 	Assert(objsToSpawn);
 
-	*(win32DrawnBuffers) = CreateBuffersFromOBJ(objsToSpawn, tempArena, d3dDevice, memoryPoolCode);
+	*(win32DrawnBuffers) = CreateBuffersFromOBJ(objsToSpawn, objArena, d3dDevice, memoryPoolCode);
 	win32DrawnBuffers++;
 	objsToSpawn++;
     }

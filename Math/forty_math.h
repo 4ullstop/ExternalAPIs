@@ -5,7 +5,12 @@
   Code will not compile without it and will cause redefinition issues of v4 type
  */
 
-
+inline r32 Lerp(r32 a, r32 b, r32 t)
+{
+    r32 result = 0.0f;
+    result = a + (b - a) * t;
+    return(result);
+}
 
 struct v2I
 {

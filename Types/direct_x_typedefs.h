@@ -17,6 +17,11 @@ typedef struct vertex_position_color_
     DirectX::XMFLOAT3 color;
 } vertex_position_color;
 
+typedef struct material_properties_
+{
+    DirectX::XMFLOAT4 matColor;
+} material_properties;
+
 struct cube_buffers
 {
     ID3D11Buffer* vertexBuffer;

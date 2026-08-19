@@ -89,6 +89,10 @@ enum spawnable_obj_type : i32
 //    sot_ico = 0,
     sot_boat = 0,
 	sot_mast = 1,
+	sot_ref = 2,
+	sot_windsock = 3,
+	sot_axes = 4,
+	sot_forward_arrow = 5,
 };
 
 struct transform
