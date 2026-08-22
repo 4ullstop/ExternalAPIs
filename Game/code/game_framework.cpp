@@ -146,6 +146,7 @@ spawned_obj_info* SpawnNewOBJ(spawnable_obj_type type, transform startTrans, gam
     newInfo.modelTransform = startTrans;
     m4 localMat = CreateModelMatrix(startTrans.scale, startTrans.rotation, startTrans.location);
     newInfo.inheritsTransform = inheritsTransform;
+    newInfo.textureInfo = tl_none;
     if (newInfo.inheritsTransform)
     {
 	newInfo.modelMatrix = localMat * inheritedMat;
@@ -212,4 +213,19 @@ void InitArcBallCamera(game_camera* camera)
     camera->qRotationTo = camera->currQRot = camera->targetQRot;
 
     UpdateInternalTransformations(camera);
+}
+
+game_loaded_textures LoadGameTextures(char** fileLocations, memory_arena* arena, i32 num, debug_platform_read_entire_file* ReadEntireFile, memory_pool_dll_code* memoryPoolCode)
+{
+    
+    game_loaded_textures result = {};
+    result.numOfTextures = num;
+    result.textures = (texture*)memoryPoolCode->PushArraySized(arena, sizeof(texture) * result.numOfTextures);
+    
+    thread_context dummy = {};
+    for (i32 i = 0; i < result.numOfTextures; i++)
+    {
+	result.textures[i].bmpTextureData = DEBUGLoadBMP(&dummy, ReadEntireFile, fileLocations[i]);
+    }
+    return(result);
 }

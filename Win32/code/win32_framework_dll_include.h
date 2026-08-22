@@ -66,7 +66,7 @@ WIN32_GAME_CODE_SETUP(Win32GameCodeSetupStub)
 global_variable win32_game_code_setup* Win32GameCodeSetup_ = Win32GameCodeSetupStub;
 #define Win32GameCodeSetup Win32GameCodeSetup_
 
-#define WIN32_CREATE_SPAWNABLE_BUFFERS(name) void name(game_loaded_objs* gameObjs, win32_spawnable_objs* win32Objs, memory_arena* objArena, memory_arena* tempArena, memory_pool_dll_code* memoryPoolCode, ID3D11Device* d3dDevice)
+#define WIN32_CREATE_SPAWNABLE_BUFFERS(name) void name(game_loaded_objs* gameObjs, game_loaded_textures* gameTextures, win32_spawnable_objs* win32Objs, memory_arena* objArena, memory_arena* tempArena, memory_pool_dll_code* memoryPoolCode, ID3D11Device* d3dDevice)
 typedef WIN32_CREATE_SPAWNABLE_BUFFERS(win32_create_spawnable_buffers);
 WIN32_CREATE_SPAWNABLE_BUFFERS(Win32CreateSpawnableBuffersStub)
 {

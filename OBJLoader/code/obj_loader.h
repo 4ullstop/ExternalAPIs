@@ -27,7 +27,7 @@ struct obj
     i32 vertexNormalLastIndex;
     u16* vertexNormalIndices;
     
-    r32* vertexTextureCoordinates;
+    v2* vertexTextureCoordinates;
     i32 vertexTextureCoordCount;
     i32 vertexTextureCoordLastIndex;
     u16* vertexTextureCoordIndices;

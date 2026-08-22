@@ -117,12 +117,22 @@ struct draw_buffers
     ID3D11Buffer* objectProperties;
     ID3D11ShaderResourceView* objectPropertiesView;
     u32 hasMaterials;
+
+    
+};
+
+struct texture_buffers
+{
+    ID3D11Texture2D* textureData;
+    ID3D11ShaderResourceView* textureResourceView;
 };
 
 struct win32_spawnable_objs
 {
     draw_buffers* objDrawnBuffers;
+    texture_buffers* textureBuffers;
 };
+
 
 #define WIN32_FRAMEWORK_H
 #endif

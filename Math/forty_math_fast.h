@@ -102,6 +102,17 @@ struct alignas(16) v4I
     };
 };
 
+inline bool32
+operator==(v4I a, v4I b)
+{
+    bool32 result =
+    ((a.e[0] == b.e[0]) &&
+     (a.e[1] == b.e[1]) &&
+     (a.e[2] == b.e[2]) &&
+     (a.e[3] == b.e[3]));
+    return(result);
+}
+
 struct alignas(16) v4u32
 {
     union

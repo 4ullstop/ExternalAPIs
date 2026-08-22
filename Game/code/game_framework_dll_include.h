@@ -50,12 +50,23 @@ GAME_SPAWN_NEW_OBJ(GameSpawnNewObjStub)
 global_variable game_spawn_new_obj* GameSpawnNewObj_ = GameSpawnNewObjStub;
 #define GameSpawnNewObj GameSpawnNewObj_
 
+#define GAME_LOAD_TEXTURES(name) game_loaded_textures name(char** fileLocation, memory_arena* arena, i32 num, debug_platform_read_entire_file* ReadEntireFile, memory_pool_dll_code* memoryPoolCode)
+typedef GAME_LOAD_TEXTURES(game_load_textures);
+GAME_LOAD_TEXTURES(GameLoadTexturesStub)
+{
+    game_loaded_textures temp = {};
+    return(temp);
+}
+global_variable game_load_textures* GameLoadTextures_ = GameLoadTexturesStub;
+#define GameLoadTextures GameLoadTextures_
+
 struct game_framework_dll_code
 {
     game_create_view_and_perspective* GameCreateViewAndPerspective;
     game_update_camera* GameUpdateCamera;
     game_load_obj_files* GameLoadOBJFiles;
     game_spawn_new_obj* GameSpawnNewOBJ;
+    game_load_textures* GameLoadTextures;
 };
     
 #define GAME_FRAMEWORK_DLL_INCLUDE

@@ -296,7 +296,10 @@ obj* ParseOBJData(char* fileLocation, memory_arena* tempArena, memory_arena* sta
 
     result->vertices = (r32*)memoryPoolCode->PushArraySized(tempArena, (sizeof(r32) * result->vertexCount) * 3);
     result->vertexNormals = (r32*)memoryPoolCode->PushArraySized(tempArena, (sizeof(r32) * result->vertexNormalCount) * 3);
+#if 0
     result->vertexTextureCoordinates = (r32*)memoryPoolCode->PushArraySized(tempArena, (sizeof(r32) * result->vertexTextureCoordCount) * 2);
+#endif
+    result->vertexTextureCoordinates = (v2*)memoryPoolCode->PushArraySized(tempArena, sizeof(v2) * result->vertexTextureCoordCount);
     result->face = (i32*)memoryPoolCode->PushArraySized(tempArena, (sizeof(i32) * result->faceCount) * 3);    
 
     result->facesToMaterialIndices = (i32*)memoryPoolCode->PushArraySized(tempArena, (sizeof(i32) * result->faceCount));
@@ -416,10 +419,11 @@ obj* ParseOBJData(char* fileLocation, memory_arena* tempArena, memory_arena* sta
 
 	    case e_vertex_texture_coords:
 	    {
+		i32 index = 0;
 		ParseFloatMembers(rowData,
 				  tempArena,
-				  result->vertexTextureCoordinates,
-				  &result->vertexTextureCoordLastIndex,
+				  result->vertexTextureCoordinates[result->vertexTextureCoordLastIndex++].e,
+				  &index,
 				  itemsPerRow,
 				  memoryPoolCode);
 	    } break;

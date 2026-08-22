@@ -15,6 +15,7 @@ typedef struct vertex_position_color_
 {
     DirectX::XMFLOAT3 pos;
     DirectX::XMFLOAT3 color;
+    DirectX::XMFLOAT2 texCoord;
 } vertex_position_color;
 
 typedef struct material_properties_

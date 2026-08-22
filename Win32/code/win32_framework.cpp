@@ -328,52 +328,115 @@ void Win32ProcessPendingMessages(game_controller_input* keyboardController, game
 	    
 }
 
+
 obj_conversion ConvertGameOBJToDXOBJ(obj* currObj, memory_arena* arena, memory_pool_dll_code* memoryPoolCode)
 {
     obj_conversion result = {};
 
     HRESULT hr = {};
 
-    result.objVertsSize = sizeof(vertex_position_color) * (currObj->vertexCount);
-    result.objVerts =
-	(vertex_position_color*)memoryPoolCode->PushArraySized(arena, result.objVertsSize);
-
-    size_t indexSize = sizeof(u16) * currObj->faceLastIndex;
-    result.indices = (u16*)memoryPoolCode->PushArraySized(arena, indexSize);
     if (currObj->hasMaterials)
     {
 	result.materialIndices = (u32*)memoryPoolCode->PushArraySized(arena, (sizeof(u32) * currObj->faceCount));
     }
+
+    v3* tempVerts = (v3*)memoryPoolCode->PushArraySized(arena, sizeof(v3) * currObj->vertexCount);
     
-    //When you get to it you will have to figure out how to load in textures
-    v3 testColors[] =
+    for (i32 i = 0, j = 0; j < currObj->vertexCount; i +=3, j++)
     {
-	{0, 0, 0}, //0 Black
-	{1, 0, 0}, //1 Red
-	{0, 1, 0}, //2 Green
-	{0, 0, 1}, //3 Blue
-	{1, 0, 1}, //4 Magenta
-	{0, 1, 1}, //5 Cyan
-	{1, 1, 0}, //6 Yellow
-	{1, 1, 1}, //7 White
-    };
-
-    for (i32 i = 0, j = 0; j < currObj->vertexCount; i += 3, j++)
-    {
-	result.objVerts[j].pos.x = currObj->vertices[i];
-	result.objVerts[j].pos.y = currObj->vertices[i + 2];
-	result.objVerts[j].pos.z = currObj->vertices[i + 1];
-
-//	DirectX::XMFLOAT3 vertColor = {testColors[j].x, testColors[j].y, testColors[j].z};
-	DirectX::XMFLOAT3 vertColor = {1.0f, 0.0f, 1.0f};
-//	DirectX::XMFLOAT3 vertColor = {1.0f, 0.0f, 0.0f}; 
-	result.objVerts[j].color = vertColor;
+	tempVerts[j].x = currObj->vertices[i];
+	tempVerts[j].y = currObj->vertices[i + 2];
+	tempVerts[j].z = currObj->vertices[i + 1];	
     }
-    for (i32 i = 0; i < currObj->faceLastIndex; i++)
+
+    v2* tempTexCoord = (v2*)memoryPoolCode->PushArraySized(arena, sizeof(v2) * currObj->vertexTextureCoordLastIndex);
+    
+    for (i32 i = 0; i < currObj->vertexTextureCoordLastIndex; i++)
     {
-	result.indices[i] = currObj->vertexIndices[i] - 1;
+	tempTexCoord[i] = currObj->vertexTextureCoordinates[i];
     }
-    result.indexCount = currObj->faceLastIndex;
+
+    //v/vt/vn
+    vertex_position_color* preEvalList =
+	(vertex_position_color*)memoryPoolCode->PushArraySized(arena,
+							       sizeof(vertex_position_color) *
+							       currObj->faceLastIndex);
+
+    v4I* keys = (v4I*)memoryPoolCode->PushArraySized(arena, sizeof(v4I) * currObj->faceLastIndex);
+
+    i32* preEvalIndices = (i32*)memoryPoolCode->PushArraySized(arena, sizeof(i32) * currObj->faceLastIndex);
+
+
+    i32 totalNumOfVerts = 0;
+    i32 totalNumOfIndices = 0;
+    for (i32 i = 0, f = 0, k = 0; i < currObj->faceLastIndex; i++)
+    {
+	i32 posIndex = currObj->vertexIndices[i] - 1;
+	i32 textureCoordIndex = currObj->vertexTextureCoordIndices[i] - 1;
+	i32 vertexNormalIndex = currObj->vertexNormalIndices[i] - 1;
+
+	keys[i].e[0] = posIndex;
+	keys[i].e[1] = textureCoordIndex;
+	keys[i].e[2] = vertexNormalIndex;
+	keys[i].e[3] = 0;
+
+	bool32 keyFound = false;
+	i32 repeatedIndex = 0;
+	for (i32 j = 0; j < i; j++)
+	{
+	    if (keys[i] == keys[j])
+	    {
+		//vertex already exists, don't add to vert list, properly index
+		keyFound = true;
+		repeatedIndex = preEvalIndices[j];
+		break;
+	    }
+	}
+	
+	if (!keyFound)
+	{
+	    preEvalList[f].pos.x = tempVerts[posIndex].x;
+	    preEvalList[f].pos.y = tempVerts[posIndex].y;
+	    preEvalList[f].pos.z = tempVerts[posIndex].z;
+
+	    DirectX::XMFLOAT3 vertColor = {1.0f, 0.0f, 1.0f};
+	    preEvalList[f].color = vertColor;
+	    
+	    preEvalList[f].texCoord.x = tempTexCoord[textureCoordIndex].x;
+	    preEvalList[f].texCoord.y = tempTexCoord[textureCoordIndex].y;	    
+	    
+	    preEvalIndices[k] = f;
+	    f++;
+	    k++;
+	}
+	else
+	{
+	    preEvalIndices[k] = repeatedIndex;
+	    k++;
+	}
+
+	totalNumOfVerts = f;
+	totalNumOfIndices = k;
+    }
+    //Finally allocate based on totalNum variables and assign
+
+    result.objVertsSize = sizeof(vertex_position_color) * totalNumOfVerts;
+    result.objVerts = (vertex_position_color*)memoryPoolCode->PushArraySized(arena, result.objVertsSize);
+    result.indexCount = totalNumOfIndices;
+    result.indices = (u16*)memoryPoolCode->PushArraySized(arena, sizeof(u16) * totalNumOfIndices);
+
+
+    
+    for (i32 i = 0; i < totalNumOfVerts; i++)
+    {
+	result.objVerts[i] = preEvalList[i];
+    }
+
+    for (i32 i = 0; i < totalNumOfIndices; i++)
+    {
+	result.indices[i] = (u16)preEvalIndices[i];
+    }
+
 
     result.hasMaterials = currObj->hasMaterials;
     if (currObj->hasMaterials)
@@ -398,7 +461,9 @@ obj_conversion ConvertGameOBJToDXOBJ(obj* currObj, memory_arena* arena, memory_p
 					   1.0f);
 	    DirectX::XMStoreFloat4(&result.materialProperties[i].matColor, tempCol);
 	}
-    }
+    }      
+
+
     return(result);
 }
 
@@ -586,6 +651,7 @@ CreateBuffersFromOBJ(obj* objToInit, memory_arena* tempArena, ID3D11Device* d3dD
 
     result.indexCount = convertedObj.indexCount;
 
+ 
 
     if (convertedObj.hasMaterials)
     {
@@ -640,10 +706,58 @@ CreateBuffersFromOBJ(obj* objToInit, memory_arena* tempArena, ID3D11Device* d3dD
     }
     result.faceCount = convertedObj.faceCount;
     result.hasMaterials = convertedObj.hasMaterials;
+
+
+    
+    
     return(result);
 }
 
-void Win32CreateSpawnableBuffers(game_loaded_objs* gameObjs, win32_spawnable_objs* win32Objs, memory_arena* objArena, memory_arena* tempArena, memory_pool_dll_code* memoryPoolCode, ID3D11Device* d3dDevice)
+texture_buffers*
+Win32CreateTextureBuffers(game_loaded_textures* gameLoadedTextures, memory_arena* arena, memory_pool_dll_code* memoryPoolCode, ID3D11Device* d3dDevice)
+{
+    texture_buffers* result = 0;
+    result =
+	(texture_buffers*)memoryPoolCode->PushArraySized(arena,
+							 sizeof(texture_buffers) *
+							 gameLoadedTextures->numOfTextures);
+
+    HRESULT hr = {};
+    for (i32 i = 0; i < gameLoadedTextures->numOfTextures; i++)
+    {
+	i32 width = gameLoadedTextures->textures[i].bmpTextureData.width;
+	i32 height = gameLoadedTextures->textures[i].bmpTextureData.height;
+	
+	D3D11_TEXTURE2D_DESC textureDesc = {};
+	textureDesc.Width = width;
+	textureDesc.Height = height;
+	textureDesc.MipLevels = 1;
+	textureDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+	textureDesc.SampleDesc.Count = 1;
+	textureDesc.SampleDesc.Quality = 0;
+	textureDesc.Usage = D3D11_USAGE_DEFAULT;
+	textureDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	textureDesc.CPUAccessFlags = 0;
+	textureDesc.MiscFlags = 0;
+	textureDesc.ArraySize = 1;
+
+	D3D11_SUBRESOURCE_DATA textureData = {};
+	textureData.pSysMem = gameLoadedTextures->textures[i].bmpTextureData.pixels;
+	textureData.SysMemPitch = width * sizeof(u32);
+
+	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Format = textureDesc.Format;
+	srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MostDetailedMip = 0;
+	srvDesc.Texture2D.MipLevels = 1;
+	
+	hr = d3dDevice->CreateTexture2D(&textureDesc, &textureData, &result[i].textureData);
+	hr = d3dDevice->CreateShaderResourceView(result[i].textureData, &srvDesc, &result[i].textureResourceView);
+    }
+    return(result);
+}
+
+void Win32CreateSpawnableBuffers(game_loaded_objs* gameObjs, game_loaded_textures* gameTextures, win32_spawnable_objs* win32Objs, memory_arena* objArena, memory_arena* tempArena, memory_pool_dll_code* memoryPoolCode, ID3D11Device* d3dDevice)
 {
     win32Objs->objDrawnBuffers =
 	(draw_buffers*)memoryPoolCode->PushArraySized(objArena, (sizeof(draw_buffers)
@@ -657,10 +771,13 @@ void Win32CreateSpawnableBuffers(game_loaded_objs* gameObjs, win32_spawnable_obj
 	Assert(win32DrawnBuffers);
 	Assert(objsToSpawn);
 
-	*(win32DrawnBuffers) = CreateBuffersFromOBJ(objsToSpawn, objArena, d3dDevice, memoryPoolCode);
+	//If you start experiencing issues where meshes start to dissapear bc of overwritten data or something,
+	//look here and change tempArena to objArena
+	*(win32DrawnBuffers) = CreateBuffersFromOBJ(objsToSpawn, tempArena, d3dDevice, memoryPoolCode);
 	win32DrawnBuffers++;
 	objsToSpawn++;
     }
+    win32Objs->textureBuffers = Win32CreateTextureBuffers(gameTextures, objArena, memoryPoolCode, d3dDevice);
 }
 
 DirectX::XMVECTOR FromV4ToXMVECTOR(v4 v)

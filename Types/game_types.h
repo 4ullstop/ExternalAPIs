@@ -93,7 +93,14 @@ enum spawnable_obj_type : i32
 	sot_windsock = 3,
 	sot_axes = 4,
 	sot_forward_arrow = 5,
+	sot_texTest = 6,
 };
+
+enum texture_lookup
+{
+    tl_none = 0,
+    tl_testing = 1,
+}; 
 
 struct transform
 {
@@ -109,6 +116,7 @@ struct spawned_obj_info
     m4 modelMatrix;
     m4 localMatrix;
     bool32 inheritsTransform;
+    texture_lookup textureInfo;
 };
 
 //OBJS loaded in the game that can be spawned
@@ -122,6 +130,17 @@ struct game_loaded_objs
     listed_memory_node* spawnedObjNodes;
 
     i32 queuedSpawningItems;
+};
+
+struct texture
+{
+    loaded_bitmap bmpTextureData;
+};
+
+struct game_loaded_textures
+{
+    texture* textures;
+    i32 numOfTextures;
 };
 
 #define GAME_TYPES_H
