@@ -104,6 +104,25 @@ WIN32_FROM_M4_TO_XMMATRIX(Win32FromM4ToXMMATRIXStub)
 global_variable win32_from_m4_to_xmmatrix* Win32FromM4ToXMMATRIX_ = Win32FromM4ToXMMATRIXStub;
 #define Win32FromM4ToXMMATRIX Win32FromM4ToXMMATRIX_
 
+#define WIN32_PROCESS_CONTROLLER_INPUTS(name) void name(game_input* newInput, game_input* oldInput)
+typedef WIN32_PROCESS_CONTROLLER_INPUTS(win32_process_controller_inputs);
+WIN32_PROCESS_CONTROLLER_INPUTS(Win32ProcessControllerInputsStub)
+{
+    
+}
+global_variable win32_process_controller_inputs* Win32ProcessControllerInputs_ = Win32ProcessControllerInputsStub;
+#define Win32ProcessControllerInputs Win32ProcessControllerInputs_
+
+
+#define WIN32_LOAD_XINPUT(name) void name(void)
+typedef WIN32_LOAD_XINPUT(win32_load_xinput);
+WIN32_LOAD_XINPUT(Win32LoadXInputStub)
+{
+
+}
+global_variable win32_load_xinput* Win32LoadXInput_ = Win32LoadXInputStub;
+#define Win32LoadXInput Win32LoadXInput_
+
 struct win32_framework_dll_code
 {
     win32_process_pending_messages* Win32ProcessPendingMessages;
@@ -114,6 +133,8 @@ struct win32_framework_dll_code
     win32_from_v4_to_xmvector* Win32FromV4ToXMVECTOR;
     win32_convert_game_camera_to_win32* Win32ConvertGameCameraToWin32;
     win32_from_m4_to_xmmatrix* Win32FromM4ToXMMATRIX;
+    win32_process_controller_inputs* Win32ProcessControllerInputs;
+    win32_load_xinput* Win32LoadXInput;
 };
 
 #define WIN32_FRAMEWORK_DLL_INCLUDE_H

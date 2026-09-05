@@ -4,6 +4,10 @@
   MAJOR NOTE: USE OF THIS FILE REQUIRES THE "USE_FORTY_MATH_FAST" COMPILER FLAG
   Code will not compile without it and will cause redefinition issues of v4 type
  */
+global_variable r32 FM_PI = 3.141592654f;
+
+#define RAD2DEG(r) ((r) * 180.0 / FM_PI)
+#define DEG2RAD(r) ((r) * FM_PI / 180.0)
 
 inline r32 Lerp(r32 a, r32 b, r32 t)
 {
@@ -145,6 +149,13 @@ operator!=(v2 a, v2 b)
 }
 
 internal r32
+Cross(v2 a, v2 b)
+{
+    r32 result = (a.x * b.y) - (a.y * b.x);
+    return(result);
+}
+
+internal r32
 Dot(v2 a, v2 b)
 {
     r32 result;
@@ -169,6 +180,37 @@ Normalize(v2 a)
     return(result);
 }
 
+inline r32
+AngleBetweenTwoVectors(v2 a, v2 b)
+{
+    r32 dot = Dot(a, b);
+    r32 aMag = Magnitude(a);
+    r32 bMag = Magnitude(b);
+    r32 q = dot / (aMag * bMag);
+    r32 result = acosf(q);
+    return(result);
+}
+
+inline r32
+SignedAngleBetweenTwoVectors(v2 a, v2 b)
+{
+    r32 dot = Dot(a, b);
+    r32 cross = Cross(a, b);
+    r32 result = atan2f(cross, dot);
+    return(result);
+}
+
+inline r32
+SignedAngleBetweenTwoVectorsDegrees(v2 a, v2 b)
+{
+    r32 signedAngle = (r32)RAD2DEG(SignedAngleBetweenTwoVectors(a, b));
+    if (signedAngle < 0)
+    {
+	signedAngle += 360.0f;
+    }
+    return(signedAngle);
+}
+
 /*
 ***********************v3*************************
  */
@@ -180,6 +222,10 @@ struct v3
 	struct
 	{
 	    r32 x, y, z;
+	};
+	struct
+	{
+	    r32 pitch, yaw, roll;
 	};
 	r32 e[3];
     };

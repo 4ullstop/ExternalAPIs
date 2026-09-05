@@ -10,6 +10,45 @@
 //REMOVE THIS
 #include <stdio.h>
 
+#include <xinput.h>
+
+#define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE* pState)
+typedef X_INPUT_GET_STATE(x_input_get_state);
+X_INPUT_GET_STATE(XInputGetStateStub)
+{
+    return(ERROR_DEVICE_NOT_CONNECTED);
+}
+global_variable x_input_get_state* XInputGetState_  = XInputGetStateStub;
+#define XInputGetState XInputGetState_
+
+#define X_INPUT_SET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE* pState)
+typedef X_INPUT_SET_STATE(x_input_set_state);
+X_INPUT_SET_STATE(XInputSetStateStub)
+{
+    return(ERROR_DEVICE_NOT_CONNECTED);
+}
+global_variable x_input_set_state* XInputSetState_ = XInputSetStateStub;
+#define XInputSetState XInputSetState_
+
+
+void Win32LoadXInput(void)
+{
+    HMODULE XInputLibrary = LoadLibrary("xinput1_4.dll");
+    if (!XInputLibrary)
+    {
+	XInputLibrary = LoadLibraryA("xinput9_1_0.dll");
+    }
+    if (!XInputLibrary)
+    {
+	XInputLibrary = LoadLibrary("xinput1_3.dll");
+    }
+    if (XInputLibrary)
+    {
+	XInputGetState = (x_input_get_state*)GetProcAddress(XInputLibrary, "XInputGetState");
+	XInputSetState = (x_input_set_state*)GetProcAddress(XInputLibrary, "XInputSetState");
+    }
+}
+
 #if 0
 global_variable program_memory memory;
 global_variable memory_arena tempArena;
@@ -60,6 +99,146 @@ void Win32InitFramework()
   This is intended to be done in the user's Win32 layer
   
 */
+
+//Controller
+internal r32
+Win32ProcessInputStickValue(SHORT value, SHORT deadZoneThreshold)
+{
+    r32 result = 0.0f;
+    if (value < -deadZoneThreshold)
+    {
+	result = (r32)((value + deadZoneThreshold) / (32768.0f - deadZoneThreshold));
+    }
+    else if (value > deadZoneThreshold)
+    {
+	result = (r32)((value - deadZoneThreshold) / (32767.0f - deadZoneThreshold));
+    }
+    return(result);
+}
+
+internal void
+Win32ProcessXInputDigitalButton(DWORD xInputButtonState, game_button_state* oldState, DWORD buttonBit, game_button_state* newState)
+{
+    newState->endedDown = ((xInputButtonState & buttonBit) == buttonBit);
+    newState->halfTransitionCount = (newState->endedDown != oldState->endedDown) ? 1 : 0;
+}
+
+void Win32ProcessControllerInputs(game_input* newInput, game_input* oldInput)
+{
+    for (DWORD controllerIndex = 0; controllerIndex < XUSER_MAX_COUNT; ++controllerIndex)
+    {
+	i32 currControllerIndex = controllerIndex + 1;
+	game_controller_input* oldController = GetController(oldInput, currControllerIndex);
+	game_controller_input* newController = GetController(newInput, currControllerIndex);
+	XINPUT_STATE controllerState;
+	if (XInputGetState(controllerIndex, &controllerState) == ERROR_SUCCESS)
+	{
+	    newController->isConnected = true;
+	    newController->isAnalog = oldController->isAnalog;
+
+	    XINPUT_GAMEPAD* pad = &controllerState.Gamepad;
+	    newController->isAnalog = true;
+	    newController->leftStickAverageX = Win32ProcessInputStickValue(pad->sThumbLX,
+								       XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE);
+	    newController->leftStickAverageY = Win32ProcessInputStickValue(pad->sThumbLY,
+								       XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE);
+
+	    newController->rightStickAverageX = Win32ProcessInputStickValue(pad->sThumbRX,
+									    XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE);
+	    newController->rightStickAverageY = Win32ProcessInputStickValue(pad->sThumbRY,
+									    XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE);
+
+	    if ((newController->leftStickAverageX != 0.0f) ||
+		(newController->leftStickAverageY != 0.0f))
+	    {
+		newController->isAnalog = true;
+	    }
+	    if (pad->wButtons & XINPUT_GAMEPAD_DPAD_UP)
+	    {
+		newController->leftStickAverageY = 1.0f;
+		newController->isAnalog = false;
+	    }
+	    if (pad->wButtons & XINPUT_GAMEPAD_DPAD_DOWN)
+	    {
+		newController->leftStickAverageY = -1.0f;
+		newController->isAnalog = false;
+	    }
+	    if (pad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT)
+	    {
+		newController->leftStickAverageX = 1.0f;
+		newController->isAnalog = false;
+	    }
+	    if (pad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT)
+	    {
+		newController->leftStickAverageX = -1.0f;
+		newController->isAnalog = false;
+	    }
+
+	    r32 threshold = 0.5f;
+	    Win32ProcessXInputDigitalButton((newController->leftStickAverageX < -threshold) ? 1 : 0,
+					    &oldController->moveLeft, 1,
+					    &newController->moveLeft);
+	    Win32ProcessXInputDigitalButton((newController->leftStickAverageX > threshold) ? 1 : 0,
+					    &oldController->moveRight, 1,
+					    &newController->moveRight);
+	    Win32ProcessXInputDigitalButton((newController->leftStickAverageY < -threshold) ? 1 : 0,
+					    &oldController->moveDown, 1,
+					    &newController->moveDown);
+	    Win32ProcessXInputDigitalButton((newController->leftStickAverageY > threshold) ? 1 : 0,
+					    &oldController->moveUp, 1,
+					    &newController->moveUp);
+
+
+
+	    Win32ProcessXInputDigitalButton((newController->rightStickAverageX < -threshold) ? 1 : 0,
+					    &oldController->lookLeft, 1,
+					    &newController->lookLeft);
+	    Win32ProcessXInputDigitalButton((newController->rightStickAverageX > threshold) ? 1 : 0,
+					    &oldController->lookRight, 1,
+					    &newController->lookRight);
+	    Win32ProcessXInputDigitalButton((newController->rightStickAverageY < -threshold) ? 1 : 0,
+					    &oldController->lookDown, 1,
+					    &newController->lookDown);
+	    Win32ProcessXInputDigitalButton((newController->rightStickAverageY > threshold) ? 1 : 0,
+					    &oldController->lookUp, 1,
+					    &newController->lookUp);	    
+	    
+
+	    Win32ProcessXInputDigitalButton(pad->wButtons,
+					    &oldController->one, XINPUT_GAMEPAD_A,
+					    &newController->one);
+	    Win32ProcessXInputDigitalButton(pad->wButtons,
+					    &oldController->two, XINPUT_GAMEPAD_B,
+					    &newController->two);
+	    Win32ProcessXInputDigitalButton(pad->wButtons,
+					    &oldController->three, XINPUT_GAMEPAD_X,
+					    &newController->three);
+	    Win32ProcessXInputDigitalButton(pad->wButtons,
+					    &oldController->four, XINPUT_GAMEPAD_Y,
+					    &newController->four);
+
+	    Win32ProcessXInputDigitalButton(pad->wButtons,
+					    &oldController->five, XINPUT_GAMEPAD_LEFT_SHOULDER,
+					    &newController->five);
+	    Win32ProcessXInputDigitalButton(pad->wButtons,
+					    &oldController->six, XINPUT_GAMEPAD_RIGHT_SHOULDER,
+					    &newController->six);	    	    	    
+
+	    Win32ProcessXInputDigitalButton(pad->wButtons,
+					    &oldController->back, XINPUT_GAMEPAD_BACK,
+					    &newController->back);
+	    Win32ProcessXInputDigitalButton(pad->wButtons,
+					    &oldController->start, XINPUT_GAMEPAD_START,
+					    &newController->start);	    	    	    
+	}
+	else
+	{
+	    newController->isConnected = false;
+	}
+    }
+}
+    
+
 void Win32UpdateCameraFP(dx_camera* camera)
 {
     //Update constantBufferData according to the constantBufferData in our game_camera, then submit to pipeline  
@@ -90,9 +269,6 @@ void Win32SetMouseStates(game_input* newInput, game_input* oldInput)
 
 void Win32ProcessKeyboardMessage(game_button_state* newState, game_button_state* oldState, bool32 isDown)
 {
-
-
-
     if (newState->endedDown != isDown)
     {
 	newState->endedDown = isDown;

@@ -1,15 +1,15 @@
 #if !defined FORTY_MATH_SCALAR_FAST
 #include <math.h>
 
-global_variable r32 FM_PI = 3.141592654f;
+
 global_variable r32 FM_2PI = 6.283185307f;
 global_variable r32 FM_PIDIV2 = 1.570796327f;
 global_variable r32 FM_1DIV2PI = 0.159154943f;
 global_variable r32 FM_1DIVPI = 0.318309886f;
 global_variable r32 FM_PIDIV4 = 0.785398163f;
 
-#define RAD2DEG(r) ((r) * 180.0 / FM_PI)
-#define DEG2RAD(r) ((r) * FM_PI / 180.0)
+
+
 
 inline v2
 ScalarSinCos(r32 value)

@@ -144,6 +144,11 @@ spawned_obj_info* SpawnNewOBJ(spawnable_obj_type type, transform startTrans, gam
 {
     spawned_obj_info newInfo;
     newInfo.modelTransform = startTrans;
+    transform localTransform = {};
+    localTransform.rotation = QuaternionIdentity();
+    localTransform.location = {0.0f, 0.0f, 0.0f, 0.0f};
+    localTransform.scale = {1.0f, 1.0f, 1.0f, 1.0f};
+    newInfo.localTransform = localTransform;
     m4 localMat = CreateModelMatrix(startTrans.scale, startTrans.rotation, startTrans.location);
     newInfo.inheritsTransform = inheritsTransform;
     newInfo.textureInfo = tl_none;

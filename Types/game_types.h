@@ -37,10 +37,16 @@ struct game_controller_input
 
     bool32 started;
     bool32 inputPreviousFrame;
+
+    r32 leftStickAverageX;
+    r32 leftStickAverageY;
+
+    r32 rightStickAverageX;
+    r32 rightStickAverageY;
     
     union
     {
-	game_button_state buttons[15];
+	game_button_state buttons[21];
 	struct
 	{
 	    game_button_state moveForward;
@@ -60,8 +66,14 @@ struct game_controller_input
 	    game_button_state six;
 	    game_button_state seven;
 	    
-	    
+	    game_button_state back;
+	    game_button_state start;
 
+	    game_button_state lookRight;
+	    game_button_state lookLeft;
+	    game_button_state lookUp;
+	    game_button_state lookDown;	    
+	    
 	    game_button_state terminator;
 	};
     };
@@ -94,12 +106,18 @@ enum spawnable_obj_type : i32
 	sot_axes = 4,
 	sot_forward_arrow = 5,
 	sot_texTest = 6,
+	sot_ocean = 7,
+	sot_wind_model_bottom = 8,
+	sot_wind_model_top = 9,
+	sot_marooned = 10,
+	sot_wind_dir_cardinal = 11,	
 };
 
 enum texture_lookup
 {
     tl_none = 0,
     tl_testing = 1,
+    tl_wind_model = 2,
 }; 
 
 struct transform
@@ -113,10 +131,12 @@ struct spawned_obj_info
 {
     spawnable_obj_type type;
     transform modelTransform;
+    transform localTransform;
     m4 modelMatrix;
     m4 localMatrix;
     bool32 inheritsTransform;
     texture_lookup textureInfo;
+    v3 rotations;
 };
 
 //OBJS loaded in the game that can be spawned

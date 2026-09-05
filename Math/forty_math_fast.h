@@ -1,6 +1,7 @@
 #if !defined (FORTY_MATH_FAST_H)
 #include <xmmintrin.h>
 #include <emmintrin.h>
+#include <tmmintrin.h>
 #include "../Types/typedefs.h"
 #include "forty_math.h"
 /*
@@ -245,7 +246,41 @@ global_variable u32 FM_PERMUTE_1W = 7;
 
 r32 ToRad(r32 deg) { return deg * (FM_PI / 180.0f); }
 
+u32 GetByteIndices(u32 index)
+{
+    if (index > 3) return 0x80808080;
+
+    u32 baseByte = (index & 3) * 4;
+    return(baseByte | ((baseByte + 1) << 8) | ((baseByte + 2) << 16) | ((baseByte + 3) << 24));
+}
+
 //Wow this function is crazy
+#if 1
+inline v4 FCALL
+VectorPermute(v4 a, v4 b, u32 permuteX, u32 permuteY, u32 permuteZ, u32 permuteW)
+{
+    __m128i maskA = _mm_setr_epi32(
+	GetByteIndices(permuteX),
+	GetByteIndices(permuteY),
+	GetByteIndices(permuteZ),
+	GetByteIndices(permuteW)
+	);
+
+    __m128i maskB = _mm_setr_epi32(
+	GetByteIndices(permuteX - 4),
+	GetByteIndices(permuteY - 4),
+	GetByteIndices(permuteZ - 4),
+	GetByteIndices(permuteW - 4)
+	);
+
+
+    m128 shuffled1 = _mm_castsi128_ps(_mm_shuffle_epi8(_mm_castps_si128(a.smv), maskA));
+    m128 shuffled2 = _mm_castsi128_ps(_mm_shuffle_epi8(_mm_castps_si128(b.smv), maskB));
+    v4 result = {};
+    result.smv = _mm_or_ps(shuffled1, shuffled2);
+    return(result);
+}
+#else
 inline v4u32 FCALL
 VectorPermute(v4 a, v4 b, u32 permuteX, u32 permuteY, u32 permuteZ, u32 permuteW)
 {
@@ -275,6 +310,8 @@ VectorPermute(v4 a, v4 b, u32 permuteX, u32 permuteY, u32 permuteZ, u32 permuteW
 
     return(result);
 }
+#endif
+
 
 inline v4 FCALL
 SetV4(r32 x, r32 y, r32 z, r32 w)
@@ -403,6 +440,32 @@ operator-=(v4 a)
     return(*this);
 }
 
+inline bool32
+operator==(v4 a, v4 b)
+{
+    bool32 result =
+    {
+	(a.x == b.x) &&
+	(a.y == b.y) &&
+	(a.z == b.z) &&
+	(a.w == b.w)
+    };
+    return(result);
+}
+
+inline bool32
+operator!=(v4 a, v4 b)
+{
+    bool32 result =
+    {
+	(a.x != b.x) &&
+	(a.y != b.y) &&
+	(a.z != b.z) &&
+	(a.w != b.w)
+    };
+    return(result);
+}
+
 inline v4 FCALL
 VectorMultiplyAdd(v4 a, v4 b, v4 c)
 {
@@ -440,6 +503,8 @@ ZeroVector()
     return(result);
 #endif    
 }
+
+
 
 inline v4 FCALL
 DotV4(v4 a, v4 b)
@@ -487,6 +552,8 @@ DotV4(v4 a, v4 b)
 
 (((V2.vector4_f32[2] * V3.vector4_f32[1]) - (V2.vector4_f32[1] * V3.vector4_f32[2])) * V1.vector4_f32[0]) - (((V2.vector4_f32[2] * V3.vector4_f32[0]) - (V2.vector4_f32[0] * V3.vector4_f32[2])) * V1.vector4_f32[1]) + (((V2.vector4_f32[1] * V3.vector4_f32[0]) - (V2.vector4_f32[0] * V3.vector4_f32[1])) * V1.vector4_f32[2]),
 */
+
+
 
 
 inline v4 FCALL
@@ -582,21 +649,7 @@ VecSqrt(v4 a)
 inline v4 FCALL
 VecLenSq(v4 a)
 {
-#if NO_INTRINSICS
-
-
-#elif defined(ARM)
-
-#elif defined(SSE)
-#if defined(SSE_4)
-
-#elif defined(SSE_3)
-
-#elif defined(SSE_2) || defined(SSE_1)
-    
-#endif    
-    
-#endif    
+    return(DotV4(a, a));
 }
 
 
@@ -3345,24 +3398,40 @@ QuaternionFromEuler(v4 angles)
 #else
     v4 sign = {1.0f, -1.0f, -1.0f, 1.0f};
 
-    v4 halfAngles = angles * FM_ONEHALF;
+    v4 halfAngles = FM_ONEHALF * angles;
     v4 sinAngles, cosAngles;
     VectorSinCos(&sinAngles, &cosAngles, halfAngles);
 
 
     v4 P0, Y0, R0, P1, Y1, R1;
+#if 0
     v4u32 temp = VectorPermute(sinAngles, cosAngles, FM_PERMUTE_0X, FM_PERMUTE_1X, FM_PERMUTE_1X, FM_PERMUTE_1X);    
-    P0.smv = temp.smv;
+    P0.iSmv = temp.iSmv;
     temp = VectorPermute(sinAngles, cosAngles, FM_PERMUTE_1Y, FM_PERMUTE_0Y, FM_PERMUTE_1Y, FM_PERMUTE_1Y);
-    Y0.smv = temp.smv;
+    Y0.iSmv = temp.iSmv;
     temp = VectorPermute(sinAngles, cosAngles, FM_PERMUTE_1Z, FM_PERMUTE_1Z, FM_PERMUTE_0Z, FM_PERMUTE_1Z);
-    R0.smv = temp.smv;
+    R0.iSmv = temp.iSmv;
     temp = VectorPermute(cosAngles, sinAngles, FM_PERMUTE_0X, FM_PERMUTE_1X, FM_PERMUTE_1X, FM_PERMUTE_1X);
-    P1.smv = temp.smv;
+    P1.iSmv = temp.iSmv;
     temp = VectorPermute(cosAngles, sinAngles, FM_PERMUTE_1Y, FM_PERMUTE_0Y, FM_PERMUTE_1Y, FM_PERMUTE_1Y);
-    Y1.smv = temp.smv;
+    Y1.iSmv = temp.iSmv;
     temp = VectorPermute(cosAngles, sinAngles, FM_PERMUTE_1Z, FM_PERMUTE_1Z, FM_PERMUTE_0Z, FM_PERMUTE_1Z);
-    R1.smv = temp.smv;
+    R1.iSmv = temp.iSmv;
+#else
+    P0 =
+	VectorPermute(sinAngles, cosAngles, FM_PERMUTE_0X, FM_PERMUTE_1X, FM_PERMUTE_1X, FM_PERMUTE_1X);
+    Y0 =
+	VectorPermute(sinAngles, cosAngles, FM_PERMUTE_1Y, FM_PERMUTE_0Y, FM_PERMUTE_1Y, FM_PERMUTE_1Y);
+    R0 =
+	VectorPermute(sinAngles, cosAngles, FM_PERMUTE_1Z, FM_PERMUTE_1Z, FM_PERMUTE_0Z, FM_PERMUTE_1Z);
+    P1 =
+	VectorPermute(sinAngles, cosAngles, FM_PERMUTE_1X, FM_PERMUTE_0X, FM_PERMUTE_0X, FM_PERMUTE_0X);
+    Y1 =
+	VectorPermute(sinAngles, cosAngles, FM_PERMUTE_0Y, FM_PERMUTE_1Y, FM_PERMUTE_0Y, FM_PERMUTE_0Y);
+    R1 =
+	VectorPermute(sinAngles, cosAngles, FM_PERMUTE_0Z, FM_PERMUTE_0Z, FM_PERMUTE_1Z, FM_PERMUTE_0Z);
+#endif    
+
     
     v4 q1 = P1 * sign;
     v4 q0 = P0 * Y0;
