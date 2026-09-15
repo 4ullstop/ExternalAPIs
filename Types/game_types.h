@@ -110,7 +110,10 @@ enum spawnable_obj_type : i32
 	sot_wind_model_bottom = 8,
 	sot_wind_model_top = 9,
 	sot_marooned = 10,
-	sot_wind_dir_cardinal = 11,	
+	sot_wind_dir_cardinal = 11,
+	sot_winch = 12,
+	sot_speedometer_bottom = 13,
+	sot_speedometer_top = 14,
 };
 
 enum texture_lookup
@@ -118,6 +121,7 @@ enum texture_lookup
     tl_none = 0,
     tl_testing = 1,
     tl_wind_model = 2,
+    tl_speedometer = 3,
 }; 
 
 struct transform

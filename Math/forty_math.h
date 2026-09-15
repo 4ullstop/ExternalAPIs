@@ -191,8 +191,10 @@ AngleBetweenTwoVectors(v2 a, v2 b)
     return(result);
 }
 
+
+
 inline r32
-SignedAngleBetweenTwoVectors(v2 a, v2 b)
+AngleBetweenTwoVectorsRadians(v2 a, v2 b)
 {
     r32 dot = Dot(a, b);
     r32 cross = Cross(a, b);
@@ -201,9 +203,16 @@ SignedAngleBetweenTwoVectors(v2 a, v2 b)
 }
 
 inline r32
+UnsignedAngleBetweenTwoVectorsDegrees(v2 a, v2 b)
+{
+    r32 unsignedAngle = (r32)RAD2DEG(AngleBetweenTwoVectorsRadians(a, b));
+    return(unsignedAngle);
+}
+
+inline r32
 SignedAngleBetweenTwoVectorsDegrees(v2 a, v2 b)
 {
-    r32 signedAngle = (r32)RAD2DEG(SignedAngleBetweenTwoVectors(a, b));
+    r32 signedAngle = (r32)RAD2DEG(AngleBetweenTwoVectorsRadians(a, b));
     if (signedAngle < 0)
     {
 	signedAngle += 360.0f;

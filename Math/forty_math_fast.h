@@ -3443,6 +3443,7 @@ QuaternionFromEuler(v4 angles)
 #endif    
 }
 
+//Euler values here are input as Radians, you must convert to radians if using degrees 
 inline v4 FCALL
 QuaternionFromEuler(r32 pitch, r32 yaw, r32 roll)
 {
