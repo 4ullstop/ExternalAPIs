@@ -122,6 +122,7 @@ enum texture_lookup
     tl_testing = 1,
     tl_wind_model = 2,
     tl_speedometer = 3,
+    tl_boat = 4,
 }; 
 
 struct transform

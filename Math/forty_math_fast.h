@@ -141,6 +141,10 @@ struct alignas(16) v4
 	{
 	    r32 x, y, z, w;
 	};
+	struct
+	{
+	    r32 pitch, yaw, roll, s;
+	};
 	r32 e[4];
 	__m128 smv;
 	__m128i iSmv;
@@ -458,9 +462,9 @@ operator!=(v4 a, v4 b)
 {
     bool32 result =
     {
-	(a.x != b.x) &&
-	(a.y != b.y) &&
-	(a.z != b.z) &&
+	(a.x != b.x) ||
+	(a.y != b.y) ||
+	(a.z != b.z) ||
 	(a.w != b.w)
     };
     return(result);
@@ -504,7 +508,23 @@ ZeroVector()
 #endif    
 }
 
+inline v4 FCALL
+GetEulerFromForwardR(v4 forward)
+{
+    v4 result = {};
+    result.pitch = asinf(-forward.y);
+    result.yaw = atan2f(forward.x, forward.z);
+    return(result);
+}
 
+inline v4 FCALL
+GetEulerFromForwardD(v4 forward)
+{
+    v4 result = GetEulerFromForwardR(forward);
+    result.pitch = (r32)RAD2DEG(result.pitch);
+    result.yaw = (r32)RAD2DEG(result.yaw);
+    return(result);
+}
 
 inline v4 FCALL
 DotV4(v4 a, v4 b)
