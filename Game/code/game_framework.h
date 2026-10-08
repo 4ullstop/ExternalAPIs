@@ -53,6 +53,9 @@ struct alignas(16) game_camera
     r32 zoomTo;
 
     bool32 inheritRotation;
+
+    r32 nearZ;
+    r32 farZ;
 };
 
 //A struct that needs to be filled out by the user

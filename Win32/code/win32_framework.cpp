@@ -890,17 +890,19 @@ CreateBuffersFromOBJ(obj* objToInit, memory_arena* tempArena, ID3D11Device* d3dD
 }
 
 texture_buffers*
-Win32CreateTextureBuffers(game_loaded_textures* gameLoadedTextures, memory_arena* arena, memory_pool_dll_code* memoryPoolCode, ID3D11Device* d3dDevice)
+Win32CreateTextureBuffers(game_loaded_textures* gameLoadedTextures, memory_arena* arena, memory_pool_dll_code* memoryPoolCode, ID3D11Device* d3dDevice, i32* screenSpaceLocations)
 {
+
+    
     texture_buffers* result = 0;
     result =
 	(texture_buffers*)memoryPoolCode->PushArraySized(arena,
 							 sizeof(texture_buffers) *
 							 gameLoadedTextures->numOfTextures);
-
     HRESULT hr = {};
-    for (i32 i = 0; i < gameLoadedTextures->numOfTextures; i++)
+    for (i32 i = 0, k = 0; i < gameLoadedTextures->numOfTextures; i++)
     {
+
 	i32 width = gameLoadedTextures->textures[i].bmpTextureData.width;
 	i32 height = gameLoadedTextures->textures[i].bmpTextureData.height;
 	
@@ -929,6 +931,50 @@ Win32CreateTextureBuffers(game_loaded_textures* gameLoadedTextures, memory_arena
 	
 	hr = d3dDevice->CreateTexture2D(&textureDesc, &textureData, &result[i].textureData);
 	hr = d3dDevice->CreateShaderResourceView(result[i].textureData, &srvDesc, &result[i].textureResourceView);
+
+	result[i].isScreenSpace = gameLoadedTextures->textures[i].isScreenSpace;
+
+	if (result[i].isScreenSpace)
+	{
+	    screenSpaceLocations[k] = i;
+	    k++;
+	    result[i].uiInfo = &gameLoadedTextures->textures[i].uiInfo;
+	    ui_vertex quadVerts[] =
+		{
+		    { { -1.0f, 1.0f }, {0.0f, 0.0f} }, //topleft
+		    { {  1.0f, 1.0f }, {1.0f, 0.0f} }, //top right
+		    { { -1.0f, -1.0f}, {0.0f, 1.0f} }, //bottom left
+		    { { 1.0f, -1.0f }, {1.0f, 1.0f} } //bottomRight
+		};
+	    //This is gonna change based on the size we want our ui element to be so we need a new one for
+	    //each new piece
+
+	    for (i32 l = 0; l < ArrayCount(quadVerts); l++)
+	    {
+		for (i32 f = 0; f < ArrayCount(quadVerts[l].position); f++)
+		{
+		    result[i].uiVertexBufferData[l].position[f] = quadVerts[l].position[l];
+		    result[i].uiVertexBufferData[l].uv[f] = quadVerts[l].uv[f];
+		}
+	    }
+
+	    D3D11_BUFFER_DESC uiVertDesc;
+	    uiVertDesc.Usage = D3D11_USAGE_DEFAULT;
+	    uiVertDesc.ByteWidth = sizeof(quadVerts);
+	    uiVertDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+	    uiVertDesc.CPUAccessFlags = 0;
+	    uiVertDesc.MiscFlags = 0;
+
+	    D3D11_SUBRESOURCE_DATA uiVertData;
+	    ZeroMemory(&uiVertData, sizeof(D3D11_SUBRESOURCE_DATA));
+	    uiVertData.pSysMem = quadVerts;
+	    uiVertData.SysMemPitch = 0;
+	    uiVertData.SysMemSlicePitch = 0;
+
+	    hr = d3dDevice->CreateBuffer(&uiVertDesc, &uiVertData, &result[i].uiVertexBuffer);
+
+	}
+
     }
     return(result);
 }
@@ -953,7 +999,14 @@ void Win32CreateSpawnableBuffers(game_loaded_objs* gameObjs, game_loaded_texture
 	win32DrawnBuffers++;
 	objsToSpawn++;
     }
-    win32Objs->textureBuffers = Win32CreateTextureBuffers(gameTextures, objArena, memoryPoolCode, d3dDevice);
+    win32Objs->numOf2DTextures = gameTextures->numOfScreenSpaceTextures;
+    win32Objs->screenSpaceLocations = (i32*)memoryPoolCode->PushArraySized(objArena,
+								sizeof(i32) *
+								gameTextures->numOfScreenSpaceTextures);
+    win32Objs->textureBuffers = Win32CreateTextureBuffers(gameTextures, objArena, memoryPoolCode, d3dDevice, win32Objs->screenSpaceLocations);
+
+
+
 }
 
 DirectX::XMVECTOR FromV4ToXMVECTOR(v4 v)
@@ -980,10 +1033,15 @@ void ConvertGameCameraDataToWin32(dx_camera* dxCam, game_camera_data* gCamData)
     DirectX::XMStoreFloat4x4(&dxCam->constantBufferData.world,
 			     FromM4ToXMMATRIX(gCamData->world));
 
+    DirectX::XMMATRIX view = FromM4ToXMMATRIX(gCamData->view);
     DirectX::XMStoreFloat4x4(&dxCam->constantBufferData.view,
-			     FromM4ToXMMATRIX(gCamData->view));
+			     view);
 
     DirectX::XMStoreFloat4x4(&dxCam->constantBufferData.projection,
 			     FromM4ToXMMATRIX(gCamData->projection));
-}
 
+    DirectX::XMVECTOR det = {};
+    DirectX::XMStoreFloat4x4(&dxCam->constantBufferData.viewInverted,
+			     DirectX::XMMatrixInverse(&det, view));
+    dxCam->constantBufferData.cameraPosition = FromV4ToXMVECTOR(gCamData->position);
+}

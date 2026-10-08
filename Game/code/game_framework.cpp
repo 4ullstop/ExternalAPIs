@@ -15,11 +15,13 @@ void CreateViewAndPerspective(game_camera* camera)
 
 
     camera->world = {};
+    camera->nearZ = 0.2f;
+    camera->farZ = 1000.0f;
     camera->projection = Transpose(PerspectiveFovRH(
 				       camera->fovY,
 				       camera->aspect.x,
-				       0.01f,
-				       1000.0f)
+ 				       camera->nearZ,
+				       camera->farZ)
 	);
 }
 
@@ -149,6 +151,8 @@ spawned_obj_info* SpawnNewOBJ(spawnable_obj_type type, transform startTrans, gam
     localTransform.location = {0.0f, 0.0f, 0.0f, 0.0f};
     localTransform.scale = {1.0f, 1.0f, 1.0f, 1.0f};
     newInfo.localTransform = localTransform;
+    newInfo.hidden = false;
+    newInfo.unlit = false;
     m4 localMat = CreateModelMatrix(startTrans.scale, startTrans.rotation, startTrans.location);
     newInfo.inheritsTransform = inheritsTransform;
     newInfo.textureInfo = tl_none;
@@ -220,7 +224,15 @@ void InitArcBallCamera(game_camera* camera)
     UpdateInternalTransformations(camera);
 }
 
-game_loaded_textures LoadGameTextures(char** fileLocations, memory_arena* arena, i32 num, debug_platform_read_entire_file* ReadEntireFile, memory_pool_dll_code* memoryPoolCode)
+void UpdateUITexture(v2 size, v2 location, ui_update* update)
+{
+    update->size = size;
+    update->position = location;
+    update->wasUpdated = true;
+    update->hidden = false;
+}
+
+game_loaded_textures LoadGameTextures(texture_load_info* textureInfo, memory_arena* arena, memory_arena* tempArena, i32 num, debug_platform_read_entire_file* ReadEntireFile, memory_pool_dll_code* memoryPoolCode)
 {
     
     game_loaded_textures result = {};
@@ -230,7 +242,17 @@ game_loaded_textures LoadGameTextures(char** fileLocations, memory_arena* arena,
     thread_context dummy = {};
     for (i32 i = 0; i < result.numOfTextures; i++)
     {
-	result.textures[i].bmpTextureData = DEBUGLoadBMP(&dummy, ReadEntireFile, fileLocations[i]);
+	result.textures[i].bmpTextureData = DEBUGLoadBMP(&dummy, ReadEntireFile, textureInfo[i].fileName, memoryPoolCode, tempArena);
+	result.textures[i].isScreenSpace = textureInfo[i].isScreenSpace;
+
+	if (result.textures[i].isScreenSpace)
+	{
+	    result.numOfScreenSpaceTextures++;
+	    v2 defaultSize = {100.0f, 100.0f};
+	    v2 defaultLocation = {50.0f, 50.0f};
+	    UpdateUITexture(defaultSize, defaultLocation, &result.textures[i].uiInfo);
+	}
+	
     }
     return(result);
 }

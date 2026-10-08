@@ -299,20 +299,6 @@ void RemoveSpecificNode(listed_memory* rec, listed_memory_node** recList, listed
     ListFree(rec, nodeToRemove);
 }
 
-void* MemCpy(void* dest, void* src, size_t n)
-{
-    if (dest == nullptr) return(nullptr);
-    u8* uDest = (u8*)dest;
-    u8* uSrc = (u8*)src;
-
-    for (i32 i = 0; i < n; i++)
-    {
-	uDest[i] = uSrc[i];
-    }
-
-    return(dest);
-}
-
 //Add to front of list, could prob rename this sometime
 listed_memory_node* AddListedItem(listed_memory* rec, void* data, size_t dataSize, listed_memory_node** recList)
 {

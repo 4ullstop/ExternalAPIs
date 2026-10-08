@@ -29,7 +29,7 @@ FindLeastSignificantSetBit(u32 value)
 }
 
 loaded_bitmap
-DEBUGLoadBMP(thread_context* thread, debug_platform_read_entire_file* ReadEntireFile, char* filename)
+DEBUGLoadBMP(thread_context* thread, debug_platform_read_entire_file* ReadEntireFile, char* filename, memory_pool_dll_code* memoryPoolCode, memory_arena* tempArena)
 {
     loaded_bitmap result = {};
     debug_read_file_result readResult = ReadEntireFile(thread, filename);
@@ -37,6 +37,7 @@ DEBUGLoadBMP(thread_context* thread, debug_platform_read_entire_file* ReadEntire
     if (readResult.contents != 0)
     {
 	bitmap_header* header = (bitmap_header*)readResult.contents;
+
 	u32* pixels = (u32*)((u8*)readResult.contents + header->bitmapOffset);
 	result.pixels = pixels;
 	result.width = header->width;
@@ -59,6 +60,8 @@ DEBUGLoadBMP(thread_context* thread, debug_platform_read_entire_file* ReadEntire
 	Assert(blueShift.found);
 	Assert(alphaShift.found);
 
+
+	
 	u32* sourceDest = pixels;
 	for (i32 y = 0; y < header->height; ++y)
 	{
@@ -70,6 +73,22 @@ DEBUGLoadBMP(thread_context* thread, debug_platform_read_entire_file* ReadEntire
 				 (((c >> greenShift.index) & 0xFF) << 8)|
 				 (((c >> blueShift.index) & 0xFF) << 0));
 	    }
+	}
+
+	i32 pitch = header->width * sizeof(u32);
+	u32* tempRow = (u32*)memoryPoolCode->PushStruct(tempArena, sizeof(pitch));
+
+	u8* topRow = (u8*)pixels;
+	u8* bottomRow = (u8*)pixels + ((header->height - 1) * pitch);
+
+	for (i32 y = 0; y < (header->height / 2); ++y)
+	{
+	    MemCpy(tempRow, topRow, pitch);
+	    MemCpy(topRow, bottomRow, pitch);
+	    MemCpy(bottomRow, tempRow, pitch);
+
+	    topRow += pitch;
+	    bottomRow -= pitch;
 	}
     }
 

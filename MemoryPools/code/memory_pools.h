@@ -54,5 +54,21 @@ struct listed_memory
     listed_memory_node* nodeArray;
 };
 
+
+void* MemCpy(void* dest, void* src, size_t n)
+{
+    if (dest == nullptr) return(nullptr);
+    u8* uDest = (u8*)dest;
+    u8* uSrc = (u8*)src;
+
+    for (i32 i = 0; i < n; i++)
+    {
+	uDest[i] = uSrc[i];
+    }
+
+    return(dest);
+}
+
+
 #define MEMORY_POOLS_H
 #endif

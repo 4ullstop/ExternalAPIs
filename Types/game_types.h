@@ -114,6 +114,8 @@ enum spawnable_obj_type : i32
 	sot_winch = 12,
 	sot_speedometer_bottom = 13,
 	sot_speedometer_top = 14,
+	sot_skybox = 15,
+	sot_sun = 16,
 };
 
 enum texture_lookup
@@ -123,6 +125,12 @@ enum texture_lookup
     tl_wind_model = 2,
     tl_speedometer = 3,
     tl_boat = 4,
+    tl_ui_map = 5,
+    tl_ui_boat = 6,
+    tl_ui_left_tut = 7,
+    tl_ui_right_tut = 8,
+    tl_skybox = 9,
+    tl_sun = 10,
 }; 
 
 struct transform
@@ -142,6 +150,8 @@ struct spawned_obj_info
     bool32 inheritsTransform;
     texture_lookup textureInfo;
     v3 rotations;
+    bool32 hidden;
+    bool32 unlit;
 };
 
 //OBJS loaded in the game that can be spawned
@@ -157,16 +167,38 @@ struct game_loaded_objs
     i32 queuedSpawningItems;
 };
 
+struct texture_load_info
+{
+    char* fileName;
+    bool32 isScreenSpace;
+};
+
+struct ui_update
+{
+    bool32 wasUpdated;
+    bool32 hidden;
+    v2 size;
+    v2 position;
+};
+
 struct texture
 {
     loaded_bitmap bmpTextureData;
+    bool32 isScreenSpace;
+
+    ui_update uiInfo;
+    bool32* wasUpdated;
 };
 
 struct game_loaded_textures
 {
     texture* textures;
     i32 numOfTextures;
+
+    i32 numOfScreenSpaceTextures;
 };
+
+
 
 #define GAME_TYPES_H
 #endif

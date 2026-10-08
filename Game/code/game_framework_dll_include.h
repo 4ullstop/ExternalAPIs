@@ -50,7 +50,7 @@ GAME_SPAWN_NEW_OBJ(GameSpawnNewObjStub)
 global_variable game_spawn_new_obj* GameSpawnNewObj_ = GameSpawnNewObjStub;
 #define GameSpawnNewObj GameSpawnNewObj_
 
-#define GAME_LOAD_TEXTURES(name) game_loaded_textures name(char** fileLocation, memory_arena* arena, i32 num, debug_platform_read_entire_file* ReadEntireFile, memory_pool_dll_code* memoryPoolCode)
+#define GAME_LOAD_TEXTURES(name) game_loaded_textures name(texture_load_info* textureInfo, memory_arena* arena, memory_arena* tempArena, i32 num, debug_platform_read_entire_file* ReadEntireFile, memory_pool_dll_code* memoryPoolCode)
 typedef GAME_LOAD_TEXTURES(game_load_textures);
 GAME_LOAD_TEXTURES(GameLoadTexturesStub)
 {
@@ -60,6 +60,15 @@ GAME_LOAD_TEXTURES(GameLoadTexturesStub)
 global_variable game_load_textures* GameLoadTextures_ = GameLoadTexturesStub;
 #define GameLoadTextures GameLoadTextures_
 
+#define GAME_UPDATE_UI_TEXTURE(name) void name(v2 size, v2 location, ui_update* update)
+typedef GAME_UPDATE_UI_TEXTURE(game_update_ui_texture);
+GAME_UPDATE_UI_TEXTURE(GameUpdateUITextureStub)
+{
+    
+}
+global_variable game_update_ui_texture* GameUpdateUITexture_ = GameUpdateUITextureStub;
+#define GameUpdateUITexture GameUpdateUITexture_
+
 struct game_framework_dll_code
 {
     game_create_view_and_perspective* GameCreateViewAndPerspective;
@@ -67,6 +76,7 @@ struct game_framework_dll_code
     game_load_obj_files* GameLoadOBJFiles;
     game_spawn_new_obj* GameSpawnNewOBJ;
     game_load_textures* GameLoadTextures;
+    game_update_ui_texture* GameUpdateUITexture;
 };
     
 #define GAME_FRAMEWORK_DLL_INCLUDE

@@ -48,6 +48,9 @@ struct game_camera_data
     m4 world;
     m4 view;
     m4 projection;
+
+    v4 position;
+    m4 invView;
 };
 
 #define WIN32_STATE_FILE_NAME_COUNT MAX_PATH
@@ -118,19 +121,33 @@ struct draw_buffers
     ID3D11ShaderResourceView* objectPropertiesView;
     u32 hasMaterials;
 
-    
+};
+
+struct ui_vertex
+{
+    r32 position[2];
+    r32 uv[2];    
 };
 
 struct texture_buffers
 {
     ID3D11Texture2D* textureData;
     ID3D11ShaderResourceView* textureResourceView;
+
+    ui_vertex uiVertexBufferData[4];
+    
+    bool32 isScreenSpace;
+    ID3D11Buffer* uiVertexBuffer;
+    ui_update* uiInfo;
 };
 
 struct win32_spawnable_objs
 {
     draw_buffers* objDrawnBuffers;
     texture_buffers* textureBuffers;
+
+    i32 numOf2DTextures;
+    i32* screenSpaceLocations;
 };
 
 

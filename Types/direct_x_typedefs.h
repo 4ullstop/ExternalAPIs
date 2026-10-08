@@ -8,7 +8,10 @@ typedef struct constant_buffer_struct_
 {
     DirectX::XMFLOAT4X4 world;
     DirectX::XMFLOAT4X4 view;
-    DirectX::XMFLOAT4X4 projection;    
+    DirectX::XMFLOAT4X4 projection;
+    DirectX::XMFLOAT4X4 viewInverted;
+    
+    DirectX::XMVECTOR cameraPosition;
 } constant_buffer_struct;
 
 typedef struct vertex_position_color_
@@ -42,6 +45,7 @@ typedef struct inst_buffer_struct_2_
     r32 voxelWidth, voxelHeight, voxelResolution;
     DirectX::XMFLOAT4 boundingBoxExtent;
 } inst_buffer_struct_2;
+
 
 #define DIRECT_X_TYPEDEFS_H
 #endif
