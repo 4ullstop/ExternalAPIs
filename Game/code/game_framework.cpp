@@ -224,15 +224,61 @@ void InitArcBallCamera(game_camera* camera)
     UpdateInternalTransformations(camera);
 }
 
-void UpdateUITexture(v2 size, v2 location, ui_update* update)
+internal void
+UIToNDC(ui_update* update, ui_vertex* result, v2 screenDimensions)
+{
+    v2 topLeft = update->position;
+    v2 topRight = {update->position.x + update->size.x, update->position.y};
+    v2 bottomLeft = {update->position.x, update->position.y + update->size.y};
+    v2 bottomRight = {update->position.x + update->size.x, update->position.y + update->size.y};
+    
+    result[0].position[0] = ((2 * topLeft.x) / screenDimensions.x) - 1.0f;
+    //NDCy
+    result[0].position[1] = 1.0f - ((2 * topLeft.y) / screenDimensions.y);
+
+    //TopRighter
+    //NDCx
+    result[1].position[0] = ((2 * topRight.x) / screenDimensions.x) - 1.0f;
+    //NDCy
+    result[1].position[1] = 1.0f - ((2 * topRight.y) / screenDimensions.y);
+
+    //BottomLeft
+    //NDCx
+    result[2].position[0] = ((2 * bottomLeft.x) / screenDimensions.x) - 1.0f;
+    //NDCy
+    result[2].position[1] = 1.0f - ((2 * bottomLeft.y) / screenDimensions.y);
+
+    //BottomRight
+    //NDCx
+    result[3].position[0] = ((2 * bottomRight.x) / screenDimensions.x) - 1.0f;
+    //NDCy
+    result[3].position[1] = 1.0f - ((2 * bottomRight.y) / screenDimensions.y);
+
+    result[0].uv[0] = 0.0f;
+    result[0].uv[1] = 0.0f;    
+
+    result[1].uv[0] = 1.0f;
+    result[1].uv[1] = 0.0f;    
+
+    result[2].uv[0] = 0.0f;
+    result[2].uv[1] = 1.0f;    
+
+    result[3].uv[0] = 1.0f;
+    result[3].uv[1] = 1.0f;        
+}
+
+void UpdateUITexture(v2 size, v2 location, ui_update* update, v2 screenDimensions)
 {
     update->size = size;
     update->position = location;
     update->wasUpdated = true;
     update->hidden = false;
+
+    UIToNDC(update, update->ndcInfo, screenDimensions);
+    UIToNDC(update, update->ndcBaseInfo, screenDimensions);
 }
 
-game_loaded_textures LoadGameTextures(texture_load_info* textureInfo, memory_arena* arena, memory_arena* tempArena, i32 num, debug_platform_read_entire_file* ReadEntireFile, memory_pool_dll_code* memoryPoolCode)
+game_loaded_textures LoadGameTextures(texture_load_info* textureInfo, memory_arena* arena, memory_arena* tempArena, i32 num, v2 screenDimensions, debug_platform_read_entire_file* ReadEntireFile, memory_pool_dll_code* memoryPoolCode)
 {
     
     game_loaded_textures result = {};
@@ -250,7 +296,7 @@ game_loaded_textures LoadGameTextures(texture_load_info* textureInfo, memory_are
 	    result.numOfScreenSpaceTextures++;
 	    v2 defaultSize = {100.0f, 100.0f};
 	    v2 defaultLocation = {50.0f, 50.0f};
-	    UpdateUITexture(defaultSize, defaultLocation, &result.textures[i].uiInfo);
+	    UpdateUITexture(defaultSize, defaultLocation, &result.textures[i].uiInfo, screenDimensions);
 	}
 	
     }

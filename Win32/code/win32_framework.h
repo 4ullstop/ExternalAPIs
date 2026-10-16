@@ -123,12 +123,6 @@ struct draw_buffers
 
 };
 
-struct ui_vertex
-{
-    r32 position[2];
-    r32 uv[2];    
-};
-
 struct texture_buffers
 {
     ID3D11Texture2D* textureData;

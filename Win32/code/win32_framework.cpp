@@ -629,6 +629,9 @@ obj_conversion ConvertGameOBJToDXOBJ(obj* currObj, memory_arena* arena, memory_p
 
 	result.numOfMaterials = currObj->numOfMaterials;
 	DirectX::XMVECTOR tempCol = {};
+	DirectX::XMVECTOR tempSpecular = {};
+	DirectX::XMVECTOR tempAmbient = {};
+	DirectX::XMVECTOR tempEmmisive = {};
 	for (i32 i = 0; i < currObj->numOfMaterials; i++)
 	{
 	    tempCol = DirectX::XMVectorSet(currObj->materials[i].diffuse.x,
@@ -636,6 +639,24 @@ obj_conversion ConvertGameOBJToDXOBJ(obj* currObj, memory_arena* arena, memory_p
 					   currObj->materials[i].diffuse.z,
 					   1.0f);
 	    DirectX::XMStoreFloat4(&result.materialProperties[i].matColor, tempCol);
+
+	    tempSpecular = DirectX::XMVectorSet(currObj->materials[i].specular.x,
+						currObj->materials[i].specular.y,
+						currObj->materials[i].specular.z,
+						currObj->materials[i].specExp);
+	    DirectX::XMStoreFloat4(&result.materialProperties[i].specular, tempSpecular);
+
+	    tempAmbient = DirectX::XMVectorSet(currObj->materials[i].ambient.x,
+					       currObj->materials[i].ambient.y,
+					       currObj->materials[i].ambient.z,
+					       1.0f);
+	    DirectX::XMStoreFloat4(&result.materialProperties[i].ambient, tempAmbient);
+
+	    tempEmmisive = DirectX::XMVectorSet(currObj->materials[i].emmisive.x,
+						 currObj->materials[i].emmisive.y,
+						 currObj->materials[i].emmisive.z,
+						 1.0f);
+	    DirectX::XMStoreFloat4(&result.materialProperties[i].emmisive, tempEmmisive);
 	}
     }      
 

@@ -24,6 +24,9 @@ typedef struct vertex_position_color_
 typedef struct material_properties_
 {
     DirectX::XMFLOAT4 matColor;
+    DirectX::XMFLOAT4 specular;
+    DirectX::XMFLOAT4 ambient;
+    DirectX::XMFLOAT4 emmisive;
 } material_properties;
 
 struct cube_buffers

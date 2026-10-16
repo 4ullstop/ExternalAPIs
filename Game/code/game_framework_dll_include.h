@@ -50,7 +50,7 @@ GAME_SPAWN_NEW_OBJ(GameSpawnNewObjStub)
 global_variable game_spawn_new_obj* GameSpawnNewObj_ = GameSpawnNewObjStub;
 #define GameSpawnNewObj GameSpawnNewObj_
 
-#define GAME_LOAD_TEXTURES(name) game_loaded_textures name(texture_load_info* textureInfo, memory_arena* arena, memory_arena* tempArena, i32 num, debug_platform_read_entire_file* ReadEntireFile, memory_pool_dll_code* memoryPoolCode)
+#define GAME_LOAD_TEXTURES(name) game_loaded_textures name(texture_load_info* textureInfo, memory_arena* arena, memory_arena* tempArena, i32 num, v2 screenDimensions, debug_platform_read_entire_file* ReadEntireFile, memory_pool_dll_code* memoryPoolCode)
 typedef GAME_LOAD_TEXTURES(game_load_textures);
 GAME_LOAD_TEXTURES(GameLoadTexturesStub)
 {
@@ -60,7 +60,7 @@ GAME_LOAD_TEXTURES(GameLoadTexturesStub)
 global_variable game_load_textures* GameLoadTextures_ = GameLoadTexturesStub;
 #define GameLoadTextures GameLoadTextures_
 
-#define GAME_UPDATE_UI_TEXTURE(name) void name(v2 size, v2 location, ui_update* update)
+#define GAME_UPDATE_UI_TEXTURE(name) void name(v2 size, v2 location, ui_update* update, v2 screenDimensions)
 typedef GAME_UPDATE_UI_TEXTURE(game_update_ui_texture);
 GAME_UPDATE_UI_TEXTURE(GameUpdateUITextureStub)
 {

@@ -131,6 +131,11 @@ enum texture_lookup
     tl_ui_right_tut = 8,
     tl_skybox = 9,
     tl_sun = 10,
+    tl_lb_tut = 11,
+    tl_rb_tut = 12,
+    tl_compass_ui = 13,
+    tl_boat_dir_ui = 14,
+    tl_wind_dir_ui = 15,
 }; 
 
 struct transform
@@ -173,12 +178,21 @@ struct texture_load_info
     bool32 isScreenSpace;
 };
 
+struct ui_vertex
+{
+    r32 position[2];
+    r32 uv[2];    
+};
+
 struct ui_update
 {
     bool32 wasUpdated;
     bool32 hidden;
     v2 size;
     v2 position;
+
+    ui_vertex ndcInfo[4];
+    ui_vertex ndcBaseInfo[4];
 };
 
 struct texture
