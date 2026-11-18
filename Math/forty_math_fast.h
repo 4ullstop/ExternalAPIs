@@ -3497,6 +3497,14 @@ EulerFromQuaternion(v4 q)
     return(result);
 }
 
+inline v3 FCALL
+EulerFromQuaternionV3(v4 q)
+{
+    v4 res = EulerFromQuaternion(q);
+    v3 out = {res.x, res.y, res.z};
+    return(out);
+}
+
 inline m4 FCALL
 BuildTranslationMatrix(v4 v)
 {

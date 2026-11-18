@@ -69,6 +69,7 @@ GAME_UPDATE_UI_TEXTURE(GameUpdateUITextureStub)
 global_variable game_update_ui_texture* GameUpdateUITexture_ = GameUpdateUITextureStub;
 #define GameUpdateUITexture GameUpdateUITexture_
 
+
 struct game_framework_dll_code
 {
     game_create_view_and_perspective* GameCreateViewAndPerspective;

@@ -116,6 +116,17 @@ Win32ProcessInputStickValue(SHORT value, SHORT deadZoneThreshold)
     return(result);
 }
 
+internal r32
+Win32ProcessInputTriggerValue(SHORT value)
+{
+    r32 result = 0.0f;
+    //make value 0 - 1 instead of 0 - 255
+    
+    r32 normalizedValue = value / 255.0f;
+    result = normalizedValue;
+    return(result);
+}
+
 internal void
 Win32ProcessXInputDigitalButton(DWORD xInputButtonState, game_button_state* oldState, DWORD buttonBit, game_button_state* newState)
 {
@@ -148,6 +159,11 @@ void Win32ProcessControllerInputs(game_input* newInput, game_input* oldInput)
 	    newController->rightStickAverageY = Win32ProcessInputStickValue(pad->sThumbRY,
 									    XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE);
 
+	    newController->rightTriggerAverage = Win32ProcessInputTriggerValue(pad->bRightTrigger);
+
+	    newController->leftTriggerAverage = Win32ProcessInputTriggerValue(pad->bLeftTrigger);
+
+
 	    if ((newController->leftStickAverageX != 0.0f) ||
 		(newController->leftStickAverageY != 0.0f))
 	    {
@@ -175,6 +191,16 @@ void Win32ProcessControllerInputs(game_input* newInput, game_input* oldInput)
 	    }
 
 	    r32 threshold = 0.5f;
+	    r32 triggerThreshold = XINPUT_GAMEPAD_TRIGGER_THRESHOLD / 255;
+
+	    Win32ProcessXInputDigitalButton((newController->rightTriggerAverage > triggerThreshold) ? 1 : 0,
+					    &oldController->rightTrigger, 1,
+					    &newController->rightTrigger);
+	    Win32ProcessXInputDigitalButton((newController->leftTriggerAverage > triggerThreshold) ? 1 : 0,
+					    &oldController->leftTrigger, 1,
+					    &newController->leftTrigger);
+	    
+	    
 	    Win32ProcessXInputDigitalButton((newController->leftStickAverageX < -threshold) ? 1 : 0,
 					    &oldController->moveLeft, 1,
 					    &newController->moveLeft);

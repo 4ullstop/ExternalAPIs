@@ -43,10 +43,13 @@ struct game_controller_input
 
     r32 rightStickAverageX;
     r32 rightStickAverageY;
+
+    r32 rightTriggerAverage;
+    r32 leftTriggerAverage;
     
     union
     {
-	game_button_state buttons[21];
+	game_button_state buttons[23];
 	struct
 	{
 	    game_button_state moveForward;
@@ -73,6 +76,9 @@ struct game_controller_input
 	    game_button_state lookLeft;
 	    game_button_state lookUp;
 	    game_button_state lookDown;	    
+
+	    game_button_state leftTrigger;
+	    game_button_state rightTrigger;
 	    
 	    game_button_state terminator;
 	};
@@ -136,6 +142,16 @@ enum texture_lookup
     tl_compass_ui = 13,
     tl_boat_dir_ui = 14,
     tl_wind_dir_ui = 15,
+    tl_maxspeed_ui = 16,
+    tl_wordatlas_ui = 17,
+    tl_wordspeed_ui = 18,
+    tl_boatcourse_ui = 19,
+    tl_mapcursor_ui = 20,
+    tl_timeatlas_ui = 21,
+    tl_windtime_01_ui = 22,
+    tl_windtime_02_ui = 23,
+    tl_windtime_03_ui = 24,
+    tl_windtime_layout_ui = 25,
 }; 
 
 struct transform
@@ -178,10 +194,19 @@ struct texture_load_info
     bool32 isScreenSpace;
 };
 
+
+#define UI_TEXT_MAX_LEN 32
+struct ui_text
+{
+    i32 numOfCharacters;
+    char str[UI_TEXT_MAX_LEN];
+    r32 textSpacing;
+};
+
 struct ui_vertex
 {
     r32 position[2];
-    r32 uv[2];    
+    r32 uv[2];
 };
 
 struct ui_update
@@ -191,6 +216,9 @@ struct ui_update
     v2 size;
     v2 position;
 
+    bool32 isText;
+    ui_text textElement;
+    
     ui_vertex ndcInfo[4];
     ui_vertex ndcBaseInfo[4];
 };
@@ -202,6 +230,8 @@ struct texture
 
     ui_update uiInfo;
     bool32* wasUpdated;
+
+
 };
 
 struct game_loaded_textures

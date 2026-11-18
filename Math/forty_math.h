@@ -39,7 +39,6 @@ struct v2
 };
 
 
-
 inline v2
 operator*(r32 a, v2 b)
 {
@@ -59,6 +58,15 @@ operator*(v2 b, r32 a)
     result.y = a * b.y;
 
 
+    return(result);
+}
+
+inline v2
+operator*(v2 a, v2 b)
+{
+    v2 result = {};
+    result.x = a.x * b.x;
+    result.y = a.y * b.y;
     return(result);
 }
 
@@ -92,6 +100,15 @@ operator-(v2 a)
 }
 
 inline v2
+operator-(v2 a, r32 b)
+{
+    v2 result;
+    result.x = a.x - b;
+    result.y = a.y - b;
+    return(result);
+}
+
+inline v2
 operator+(v2 a, v2 b)
 {
     v2 result;
@@ -99,6 +116,15 @@ operator+(v2 a, v2 b)
     result.y = a.y + b.y;
 
 
+    return(result);
+}
+
+inline v2
+operator+(v2 a, r32 b)
+{
+    v2 result = {};
+    result.x = a.x + b;
+    result.y = a.y + b;
     return(result);
 }
 
@@ -124,13 +150,6 @@ inline v2 &v2::
 operator+=(v2 a)
 {
     *this = *this + a;
-    return(*this);
-}
-
-inline v2 &v2::
-operator-=(v2 a)
-{
-    *this = *this - a;
     return(*this);
 }
 

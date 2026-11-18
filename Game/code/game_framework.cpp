@@ -267,12 +267,14 @@ UIToNDC(ui_update* update, ui_vertex* result, v2 screenDimensions)
     result[3].uv[1] = 1.0f;        
 }
 
+
+
 void UpdateUITexture(v2 size, v2 location, ui_update* update, v2 screenDimensions)
 {
     update->size = size;
     update->position = location;
     update->wasUpdated = true;
-    update->hidden = false;
+//    update->hidden = false;
 
     UIToNDC(update, update->ndcInfo, screenDimensions);
     UIToNDC(update, update->ndcBaseInfo, screenDimensions);

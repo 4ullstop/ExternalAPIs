@@ -33,7 +33,7 @@ struct alignas(16) game_camera
     v4 eye;
     v4 targetPos;
     v4 targetForward;
-
+ 
     v4 inheritedLocation;
     v4 inheritedRotation;
     
@@ -56,6 +56,8 @@ struct alignas(16) game_camera
 
     r32 nearZ;
     r32 farZ;
+
+    v4 velocity;
 };
 
 //A struct that needs to be filled out by the user
